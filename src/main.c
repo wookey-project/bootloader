@@ -52,7 +52,7 @@ void exti_button_handler(uint8_t irq __attribute__((unused)),
 }
 
 extern const shr_vars_t shared_vars;
-    volatile uint32_t count = 5;
+    volatile uint32_t count = 2;
 
 /*
  * We use the local -fno-stack-protector flag for main because
