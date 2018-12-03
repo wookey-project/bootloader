@@ -142,7 +142,9 @@ int main(void)
       dbg_log("Booting...\n");
     }
 
+#if CONFIG_LOADER_MOCKUP
 start_boot:
+#endif
 
     if (dfu_mode) {
         dbg_log("Jumping to DFU mode: %x\n",
