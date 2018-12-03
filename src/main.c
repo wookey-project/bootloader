@@ -84,6 +84,15 @@ int main(void)
     dbg_log("==============================\n");
     dbg_flush();
 
+#if CONFIG_LOADER_MOCKUP
+#if CONFIG_LOADER_MOCKUP_DFU
+    dfu_mode = true;
+    goto start_boot;
+#else
+    goto start_boot;
+#endif
+#endif
+
     //leds_init();
     //leds_on(PROD_LED_STATUS);
     // button is on GPIO E4
@@ -132,6 +141,8 @@ int main(void)
     if (count == 0) {
       dbg_log("Booting...\n");
     }
+
+start_boot:
 
     if (dfu_mode) {
         dbg_log("Jumping to DFU mode: %x\n",

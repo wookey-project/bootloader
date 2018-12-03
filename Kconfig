@@ -1,0 +1,14 @@
+menu "Bootloader configuration"
+
+config LOADER_MOCKUP
+    bool "Enable bootloader mockup mode"
+
+if LOADER_MOCKUP
+
+config LOADER_MOCKUP_DFU
+    bool "Start in DFU mode"
+
+
+endif
+
+endmenu
