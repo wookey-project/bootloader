@@ -12,6 +12,11 @@ VERSION = 1
 -include $(PROJ_FILES)/Makefile.conf
 -include $(PROJ_FILES)/Makefile.gen
 
+# libbsp includes
+-include $(PROJ_FILES)/kernel/arch/socs/$(SOC)/Makefile.objs
+-include $(PROJ_FILES)/kernel/arch/cores/$(ARCH)/Makefile.objs
+-include $(PROJ_FILES)/kernel/arch/boards/Makefile.objs
+
 # use an app-specific build dir
 APP_BUILD_DIR = $(BUILD_DIR)/$(APP_NAME)
 
