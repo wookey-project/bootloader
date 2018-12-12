@@ -145,6 +145,10 @@ int main(void)
 #if CONFIG_LOADER_MOCKUP
 start_boot:
 #endif
+    dbg_log("boot structure: default: %d\n", shared_vars.default_app_index);
+    dbg_log("boot structure: default_dfu: %d\n", shared_vars.default_dfu_index);
+    dbg_log("boot structure: fw entrypoint %x\n", shared_vars.apps[shared_vars.default_app_index].entry_point);
+    dbg_log("boot structure: dfu entrypoint %x\n", shared_vars.apps[shared_vars.default_dfu_index].entry_point);
 
     if (dfu_mode) {
         dbg_log("Jumping to DFU mode: %x\n",
