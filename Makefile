@@ -71,7 +71,10 @@ TODEL_CLEAN += $(ROBJ) $(OBJ) $(SOC_OBJ) $(DRVOBJ) $(BOARD_OBJ) $(CORE_OBJ) $(DE
 # targets
 TODEL_DISTCLEAN += $(APP_BUILD_DIR)
 
-.PHONY: loader
+.PHONY: loader __clean
+
+_clean:
+	-rm -rf $(OBJ)
 
 all: $(APP_BUILD_DIR) loader
 
