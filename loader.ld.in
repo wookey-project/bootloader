@@ -53,6 +53,12 @@ SECTIONS
     _egot = .;
   } >LDR
 
+  /* Shared variables */
+  .shared :    {
+    . = ALIGN(4);
+    KEEP(*(.shared)) ;
+  }>SHR
+
 
   /* used by the startup to initialize data */
   _sidata = .;

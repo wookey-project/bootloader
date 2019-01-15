@@ -22,7 +22,7 @@
 #include "soc-interrupts.h"
 #include "boot_mode.h"
 #include "stack_check.h"
-#include "shared.h"
+#include "shr.h"
 #include "leds.h"
 #include "exported/gpio.h"
 
