@@ -44,26 +44,27 @@
 #define FW2_START FW2_KERN_BASE + VTORS_SIZE + 1
 #define DFU2_START DFU2_KERN_BASE + VTORS_SIZE + 1
 
+/* these data (.shared content) is mapped in SHR region (due to loader
+ * ldscript) only when flashing the loader through the JTAG interface.
+ * When using DFU and during all system boot, the SHR region is not overriden
+ * by these initial configuration and is updated by DFUSMART as needed. */
 __attribute__((section(".shared")))
     const shr_vars_t shared_vars = {
-                    .default_app_index = 0,             /* default boot to FW1 */
-                    .default_dfu_index = 1,             /* default boot to DFU1 */
-                    .apps = {
-                       { .entry_point = (app_entry_t)FW1_START,  .version = 0x00000001, .boot_status = BOOT_OK },
-#ifdef CONFIG_FIRMWARE_DFU
-                       { .entry_point = (app_entry_t)DFU1_START,  .version = 0x00000001, .boot_status = BOOT_OK },
-#endif
-#ifdef CONFIG_FIRMWARE_DUALBANK
-                       { .entry_point = (app_entry_t)FW2_START,  .version = 0x00000001, .boot_status = BOOT_OK },
-
-# ifdef CONFIG_FIRMWARE_DFU
-                       { .entry_point = (app_entry_t)DFU2_START,  .version = 0x00000001, .boot_status = BOOT_OK },
-# endif
-#endif
-                    },
-                    //.siglen = DFU_SIGLEN,               /* default siglen      */
-                    .siglen = 0x0,               /* default siglen      */
-                    //.sig = DFU_SIG,
-                    .sig = { 0x0 },
-                    } ;
+        .flip = {
+            .bootable = FW_BOOTABLE,
+            .version = 0,
+            .crc32 = 0x0,
+            .siglen = 0,
+            .sig = { 0x0 }
+        },
+        .vfill_flip = { 0x0 },
+        .flop = {
+            .bootable = FW_NOT_BOOTABLE,
+            .version = 0,
+            .crc32 = 0,
+            .siglen = 0,
+            .sig = { 0x0 }
+        },
+        .vfill_flop = { 0x0 }
+    };
 

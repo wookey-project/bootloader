@@ -26,6 +26,7 @@
 #include "types.h"
 #include "autoconf.h"
 
+#define MAX_SIG_LEN 64 /* 512bit sig len */
 
 #ifndef CONFIG_FIRMWARE_DUALBANK
 # ifndef CONFIG_FIRMWARE_DFU
@@ -41,28 +42,31 @@
 # endif
 #endif
 
-#define BOOT_OK  0x0000FFFF
-#define BOOT_KO  0xFFFF0000
-#define BOOT_CK  0x00FF00FF
-
-
 typedef int (* app_entry_t)(void);
 
-typedef struct __packed {
-        app_entry_t entry_point;
-        uint32_t version;
-        uint32_t boot_status;
-        // const char sig[];
-} app_t;
+#define SHR_SECTOR_SIZE 16384
 
+/* flash erase generate 0xfffffffff content */
+#define ERASE_VALUE 0xffffffff
+
+typedef enum {
+    FW_BOOTABLE = 0x00110100,
+    FW_NOT_BOOTABLE = 0x11011101
+} t_bootable_state;
 
 typedef struct __packed {
-        uint32_t default_app_index;
-        uint32_t default_dfu_index;
-        app_t apps[MAX_APP_INDEX];
-        const char kernel_msg[24][82];
-        uint32_t siglen;
-        char sig[];
+    uint32_t bootable;
+    uint32_t version;
+    uint32_t siglen;
+    uint8_t  sig[MAX_SIG_LEN];
+    uint32_t crc32;
+} t_firmware_state;
+
+typedef struct __packed {
+        t_firmware_state flip;
+        uint8_t vfill_flip[SHR_SECTOR_SIZE - sizeof(t_firmware_state)];
+        t_firmware_state flop;
+        uint8_t vfill_flop[SHR_SECTOR_SIZE - sizeof(t_firmware_state)];
 } shr_vars_t;
 
 #endif

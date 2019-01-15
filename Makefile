@@ -24,7 +24,7 @@ CFLAGS += $(EXTRA_CFLAGS)
 CFLAGS += $(DEBUG_CFLAGS)
 CFLAGS += -ffreestanding
 CFLAGS += -I$(PROJ_FILES)/kernel/shared
-CFLAGS += -Isrc/ -Iinc/ -I$(PROJ_FILES)/kernel/arch -I$(PROJ_FILES)/kernel
+CFLAGS += -Isrc/ -Iinc/ -I$(PROJ_FILES)/kernel/arch -I$(PROJ_FILES)/kernel -I$(PROJ_FILES)/externals/libecc/src
 CFLAGS += -MMD -MP
 
 LDFLAGS += -Tloader.ld -L$(APP_BUILD_DIR) $(AFLAGS) -fno-builtin -nostdlib -nostartfiles

@@ -24,6 +24,7 @@
 #include "stack_check.h"
 #include "shr.h"
 #include "leds.h"
+#include "crc32.h"
 #include "exported/gpio.h"
 
 /**
@@ -35,8 +36,10 @@
  */
 //app_entry_t ldr_main = (app_entry_t)(_ldr_base+1);
 app_entry_t fw1_main = (app_entry_t) (FW1_START);
+app_entry_t dfu1_main = (app_entry_t) (DFU1_START);
 #ifdef CONFIG_FIRMWARE_DUALBANK
 app_entry_t fw2_main = (app_entry_t) (FW2_START);
+app_entry_t dfu2_main = (app_entry_t) (DFU2_START);
 #endif
 
 volatile bool dfu_mode = false;
@@ -139,35 +142,134 @@ int main(void)
     } while (count > 0);
 
     if (count == 0) {
-      dbg_log("Booting...\n");
+        dbg_log("Booting...\n");
     }
 
 #if CONFIG_LOADER_MOCKUP
 start_boot:
 #endif
+
+    bool boot_flip = true;
+    bool boot_flop = true;
+    const t_firmware_state *fw = 0;
+
+    /* both FLIP and FLOP can be started */
+    if (shared_vars.flip.bootable == FW_BOOTABLE && shared_vars.flop.bootable == FW_BOOTABLE) {
+        if (shared_vars.flip.version == ERASE_VALUE) {
+            boot_flip = false;
+            fw = &shared_vars.flop;
+        }
+        if (shared_vars.flop.version == ERASE_VALUE) {
+            boot_flop = false;
+            fw = &shared_vars.flip;
+        }
+        if (shared_vars.flip.version > shared_vars.flop.version) {
+            boot_flop = false;
+            fw = &shared_vars.flip;
+        }
+        if (shared_vars.flop.version > shared_vars.flip.version) {
+            boot_flop = false;
+            fw = &shared_vars.flop;
+        }
+        /* end of select sanitize... */
+        if (!fw) {
+            dbg_log("Unable to choose ! leaving!\n");
+            dbg_flush();
+            return 0;
+        }
+    }
+    /* only FLIP can be started */
+    if (shared_vars.flip.bootable == FW_BOOTABLE) {
+        boot_flop = false;
+        if (shared_vars.flip.version == ERASE_VALUE) {
+            boot_flip = false;
+            dbg_log("invalid version value for lonely bootable FLIP ! leaving\n");
+            dbg_flush();
+            return 0;
+        }
+        fw = &shared_vars.flip;
+        /* end of select sanitize... */
+        if (!fw) {
+            dbg_log("Unable to choose ! leaving!\n");
+            dbg_flush();
+            return 0;
+        }
+    }
+    /* only FLOP can be started */
+    if (shared_vars.flop.bootable == FW_BOOTABLE) {
+        boot_flip = false;
+        if (shared_vars.flop.version == ERASE_VALUE) {
+            boot_flop = false;
+            dbg_log("invalid version value for lonely bootable FLIP ! leaving\n");
+            dbg_flush();
+            return 0;
+        }
+        fw = &shared_vars.flip;
+        /* end of select sanitize... */
+        if (!fw) {
+            dbg_log("Unable to choose ! leaving!\n");
+            dbg_flush();
+            return 0;
+        }
+    }
+
+    if (shared_vars.flip.bootable != FW_BOOTABLE && shared_vars.flop.bootable != FW_BOOTABLE) {
+        dbg_log("panic! unable to boot on any firmware ! none bootable\n");
+        dbg_flush();
+        return 0;
+    }
+
+    /* checking CRC32 header check */
+    if (fw->version != 0) {
+        uint32_t crc;
+        /* when version is 0, this means that this is the initial JTAG
+         * flashed firmware. This firmaware doesn't have (yet) a header
+         * signature */
+        crc = crc32((uint8_t*)fw, sizeof(t_firmware_state) - sizeof(uint32_t), 0xffffffff);
+        if (crc != fw->crc32) {
+            dbg_log("invalid fw header CRC32!!! leaving...\n");
+            dbg_flush();
+            return 0;
+        }
+    }
+
+#if 0
     dbg_log("boot structure: default: %d\n", shared_vars.default_app_index);
     dbg_log("boot structure: default_dfu: %d\n", shared_vars.default_dfu_index);
     dbg_log("boot structure: fw entrypoint %x\n", shared_vars.apps[shared_vars.default_app_index].entry_point);
     dbg_log("boot structure: dfu entrypoint %x\n", shared_vars.apps[shared_vars.default_dfu_index].entry_point);
+#endif
+
+    app_entry_t  next_level = 0;
 
     if (dfu_mode) {
-        dbg_log("Jumping to DFU mode: %x\n",
-                shared_vars.apps[shared_vars.default_dfu_index].entry_point);
-        dbg_log("Geronimo !\n");
+        if (boot_flip) {
+            dbg_log("Jumping to DFU mode: %x\n", DFU1_START);
+            next_level = (app_entry_t)DFU1_START;
+        }
+        if (boot_flop) {
+            dbg_log("Jumping to DFU mode: %x\n", DFU2_START);
+            next_level = (app_entry_t)DFU2_START;
+        }
         dbg_flush();
-
-        disable_irq();
-
-        shared_vars.apps[shared_vars.default_dfu_index].entry_point();
     } else {
-        dbg_log("Jumping to FW mode: %x\n",
-                shared_vars.apps[shared_vars.default_app_index].entry_point);
-        dbg_log("Geronimo !\n");
+        if (boot_flip) {
+            dbg_log("Jumping to FW mode: %x\n", FW1_START);
+            next_level = (app_entry_t)FW1_START;
+        }
+        if (boot_flop) {
+            dbg_log("Jumping to FW mode: %x\n", FW2_START);
+            next_level = (app_entry_t)FW2_START;
+        }
         dbg_flush();
-
-        disable_irq();
-        shared_vars.apps[shared_vars.default_app_index].entry_point();
     }
+    dbg_log("Geronimo !\n");
+    dbg_flush();
+    disable_irq();
+
+
+    next_level();
+
 
     return 0;
 }
