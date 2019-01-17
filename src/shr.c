@@ -48,23 +48,26 @@
  * ldscript) only when flashing the loader through the JTAG interface.
  * When using DFU and during all system boot, the SHR region is not overriden
  * by these initial configuration and is updated by DFUSMART as needed. */
-__attribute__((section(".shared")))
-    const shr_vars_t shared_vars = {
-        .flip = {
+__attribute__((section(".shared_flip")))
+    const shr_vars_t flip_shared_vars = {
+        .fw = {
             .bootable = FW_BOOTABLE,
             .version = 0,
             .crc32 = 0x0,
             .siglen = 0,
             .sig = { 0x0 }
         },
-        .vfill_flip = { 0x0 },
-        .flop = {
+    };
+
+#if CONFIG_FIRMWARE_DUALBANK
+__attribute__((section(".shared_flop")))
+    const shr_vars_t flop_shared_vars = {
+        .fw = {
             .bootable = FW_NOT_BOOTABLE,
             .version = 0,
-            .crc32 = 0,
+            .crc32 = 0x0,
             .siglen = 0,
             .sig = { 0x0 }
         },
-        .vfill_flop = { 0x0 }
     };
-
+#endif

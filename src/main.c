@@ -54,7 +54,10 @@ void exti_button_handler(uint8_t irq __attribute__((unused)),
   dfu_mode = true;
 }
 
-extern const shr_vars_t shared_vars;
+extern const shr_vars_t flip_shared_vars;
+#ifdef CONFIG_FIRMWARE_DUALBANK
+extern const shr_vars_t flop_shared_vars;
+#endif
     volatile uint32_t count = 2;
 
 /*
@@ -153,23 +156,24 @@ start_boot:
     bool boot_flop = true;
     const t_firmware_state *fw = 0;
 
+#ifdef CONFIG_FIRMWARE_DUALBANK
     /* both FLIP and FLOP can be started */
-    if (shared_vars.flip.bootable == FW_BOOTABLE && shared_vars.flop.bootable == FW_BOOTABLE) {
-        if (shared_vars.flip.version == ERASE_VALUE) {
+    if (flip_shared_vars.fw.bootable == FW_BOOTABLE && flop_shared_vars.fw.bootable == FW_BOOTABLE) {
+        if (flip_shared_vars.fw.version == ERASE_VALUE) {
             boot_flip = false;
-            fw = &shared_vars.flop;
+            fw = &flop_shared_vars.fw;
         }
-        if (shared_vars.flop.version == ERASE_VALUE) {
+        if (flop_shared_vars.fw.version == ERASE_VALUE) {
             boot_flop = false;
-            fw = &shared_vars.flip;
+            fw = &flip_shared_vars.fw;
         }
-        if (shared_vars.flip.version > shared_vars.flop.version) {
+        if (flip_shared_vars.fw.version > flop_shared_vars.fw.version) {
             boot_flop = false;
-            fw = &shared_vars.flip;
+            fw = &flip_shared_vars.fw;
         }
-        if (shared_vars.flop.version > shared_vars.flip.version) {
+        if (flop_shared_vars.fw.version > flip_shared_vars.fw.version) {
             boot_flop = false;
-            fw = &shared_vars.flop;
+            fw = &flop_shared_vars.fw;
         }
         /* end of select sanitize... */
         if (!fw) {
@@ -178,16 +182,17 @@ start_boot:
             return 0;
         }
     }
+#endif
     /* only FLIP can be started */
-    if (shared_vars.flip.bootable == FW_BOOTABLE) {
+    if (flip_shared_vars.fw.bootable == FW_BOOTABLE) {
         boot_flop = false;
-        if (shared_vars.flip.version == ERASE_VALUE) {
+        if (flip_shared_vars.fw.version == ERASE_VALUE) {
             boot_flip = false;
             dbg_log("invalid version value for lonely bootable FLIP ! leaving\n");
             dbg_flush();
             return 0;
         }
-        fw = &shared_vars.flip;
+        fw = &flip_shared_vars.fw;
         /* end of select sanitize... */
         if (!fw) {
             dbg_log("Unable to choose ! leaving!\n");
@@ -195,16 +200,17 @@ start_boot:
             return 0;
         }
     }
+#ifdef CONFIG_FIRMWARE_DUALBANK
     /* only FLOP can be started */
-    if (shared_vars.flop.bootable == FW_BOOTABLE) {
+    if (flop_shared_vars.fw.bootable == FW_BOOTABLE) {
         boot_flip = false;
-        if (shared_vars.flop.version == ERASE_VALUE) {
+        if (flop_shared_vars.fw.version == ERASE_VALUE) {
             boot_flop = false;
             dbg_log("invalid version value for lonely bootable FLIP ! leaving\n");
             dbg_flush();
             return 0;
         }
-        fw = &shared_vars.flip;
+        fw = &flip_shared_vars.fw;
         /* end of select sanitize... */
         if (!fw) {
             dbg_log("Unable to choose ! leaving!\n");
@@ -213,11 +219,12 @@ start_boot:
         }
     }
 
-    if (shared_vars.flip.bootable != FW_BOOTABLE && shared_vars.flop.bootable != FW_BOOTABLE) {
+    if (flip_shared_vars.fw.bootable != FW_BOOTABLE && flop_shared_vars.fw.bootable != FW_BOOTABLE) {
         dbg_log("panic! unable to boot on any firmware ! none bootable\n");
         dbg_flush();
         return 0;
     }
+#endif
 
     /* checking CRC32 header check */
     if (fw->version != 0) {
