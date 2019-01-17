@@ -150,6 +150,7 @@ int main(void)
 
 #if CONFIG_LOADER_MOCKUP
 start_boot:
+    do {} while (0);
 #endif
 
     bool boot_flip = true;
