@@ -173,7 +173,7 @@ start_boot:
             fw = &flip_shared_vars.fw;
         }
         if (flop_shared_vars.fw.version > flip_shared_vars.fw.version) {
-            boot_flop = false;
+            boot_flip = false;
             fw = &flop_shared_vars.fw;
         }
         /* end of select sanitize... */
@@ -182,7 +182,7 @@ start_boot:
             dbg_flush();
             return 0;
         }
-    }
+    } else
 #endif
     /* only FLIP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE) {
@@ -203,7 +203,7 @@ start_boot:
     }
 #ifdef CONFIG_FIRMWARE_DUALBANK
     /* only FLOP can be started */
-    if (flop_shared_vars.fw.bootable == FW_BOOTABLE) {
+    else if (flop_shared_vars.fw.bootable == FW_BOOTABLE) {
         boot_flip = false;
         if (flop_shared_vars.fw.version == ERASE_VALUE) {
             boot_flop = false;
