@@ -162,17 +162,15 @@ start_boot:
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE && flop_shared_vars.fw.bootable == FW_BOOTABLE) {
         if (flip_shared_vars.fw.version == ERASE_VALUE) {
             boot_flip = false;
-            fw = &flop_shared_vars.fw;
         }
         if (flop_shared_vars.fw.version == ERASE_VALUE) {
             boot_flop = false;
-            fw = &flip_shared_vars.fw;
         }
-        if (flip_shared_vars.fw.version > flop_shared_vars.fw.version) {
+        if (boot_flip && boot_flop && flip_shared_vars.fw.version > flop_shared_vars.fw.version) {
             boot_flop = false;
             fw = &flip_shared_vars.fw;
         }
-        if (flop_shared_vars.fw.version > flip_shared_vars.fw.version) {
+        if (boot_flip && boot_flop && flop_shared_vars.fw.version > flip_shared_vars.fw.version) {
             boot_flip = false;
             fw = &flop_shared_vars.fw;
         }
@@ -182,8 +180,28 @@ start_boot:
             dbg_flush();
             return 0;
         }
-    } else
-#endif
+        goto check_crc;
+    }
+
+    /* only FLOP can be started */
+    if (flop_shared_vars.fw.bootable == FW_BOOTABLE) {
+        boot_flip = false;
+        if (flop_shared_vars.fw.version == ERASE_VALUE) {
+            boot_flop = false;
+            dbg_log("invalid version value for lonely bootable FLIP ! leaving\n");
+            dbg_flush();
+            return 0;
+        }
+        fw = &flop_shared_vars.fw;
+        /* end of select sanitize... */
+        if (!fw) {
+            dbg_log("Unable to choose ! leaving!\n");
+            dbg_flush();
+            return 0;
+        }
+        goto check_crc;
+    }
+#else
     /* only FLIP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE) {
         boot_flop = false;
@@ -200,32 +218,17 @@ start_boot:
             dbg_flush();
             return 0;
         }
-    }
-#ifdef CONFIG_FIRMWARE_DUALBANK
-    /* only FLOP can be started */
-    else if (flop_shared_vars.fw.bootable == FW_BOOTABLE) {
-        boot_flip = false;
-        if (flop_shared_vars.fw.version == ERASE_VALUE) {
-            boot_flop = false;
-            dbg_log("invalid version value for lonely bootable FLIP ! leaving\n");
-            dbg_flush();
-            return 0;
-        }
-        fw = &flip_shared_vars.fw;
-        /* end of select sanitize... */
-        if (!fw) {
-            dbg_log("Unable to choose ! leaving!\n");
-            dbg_flush();
-            return 0;
-        }
-    }
-
-    if (flip_shared_vars.fw.bootable != FW_BOOTABLE && flop_shared_vars.fw.bootable != FW_BOOTABLE) {
-        dbg_log("panic! unable to boot on any firmware ! none bootable\n");
-        dbg_flush();
-        return 0;
+        goto check_crc;
     }
 #endif
+
+    /* fallback, none of the above permits to go to check_crc step */
+    dbg_log("panic! unable to boot on any firmware ! none bootable\n");
+    dbg_flush();
+    return 0;
+
+
+check_crc:
 
     /* checking CRC32 header check */
     if (fw->version != 0) {
@@ -276,8 +279,11 @@ start_boot:
     disable_irq();
 
 
-    next_level();
+    if (next_level) {
+        next_level();
+    }
 
+    dbg_log("error while selecting next level! leaving!\n");
 
     return 0;
 }
