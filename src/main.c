@@ -267,6 +267,16 @@ check_crc:
         }
     }
 
+    /* check firmware integrity if activated */
+
+# if CONFIG_LOADER_FW_HASH_CHECK
+    if (!check_fw_hash(fw))
+    {
+        dbg_log("Error while checking firmware integrity ! Leaving !\n");
+        return 0;
+    }
+# endif
+
     app_entry_t  next_level = 0;
 
     if (dfu_mode) {

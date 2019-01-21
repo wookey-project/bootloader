@@ -15,12 +15,13 @@ config LOADER_MOCKUP_DFU
 
 endif
 
-config LOADER_FW_SIG_CHECK
-    bool "Check firmware authenticity at boot"
+config LOADER_FW_HASH_CHECK
+    bool "Check firmware integrity at boot"
     ---help---
       Check that the Firmware image that is going to be booted is
-      authentified, using a cryptographic signature in the firmware
-      header. This does not deactivate the CRC32 check of the firmware
+      checked for integrity, using the hash data of the firmware header to
+      compare with.
+      This does not deactivate the CRC32 check of the firmware
       header structure
 
 endmenu
