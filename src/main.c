@@ -103,9 +103,6 @@ int main(void)
 #if CONFIG_LOADER_MOCKUP
 #if CONFIG_LOADER_MOCKUP_DFU
     dfu_mode = true;
-    goto start_boot;
-#else
-    goto start_boot;
 #endif
 #endif
 
@@ -157,11 +154,6 @@ int main(void)
     if (count == 0) {
         dbg_log("Booting...\n");
     }
-
-#if CONFIG_LOADER_MOCKUP
-start_boot:
-    do {} while (0);
-#endif
 
     bool boot_flip = true;
     bool boot_flop = true;
