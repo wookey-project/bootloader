@@ -73,8 +73,12 @@ TODEL_DISTCLEAN += $(APP_BUILD_DIR)
 
 .PHONY: loader __clean
 
-_clean:
+__clean:
 	-rm -rf $(OBJ)
+
+__distclean:
+	-rm -rf $(LDSCRIPT_NAME) $(APP_BUILD_DIR)/$(ELF_NAME) $(APP_BUILD_DIR)/$(HEX_NAME) $(APP_BUILD_DIR)/$(BIN_NAME)
+
 
 all: $(APP_BUILD_DIR) loader
 

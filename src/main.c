@@ -45,7 +45,17 @@ app_entry_t dfu2_main = (app_entry_t) (DFU2_START);
 volatile bool dfu_mode = false;
 
 
-
+void dump_fw_header(const t_firmware_state *fw)
+{
+    dbg_flush();
+    dbg_log("bootable:  %x\n", fw->bootable);
+    dbg_log("version :  %d\n", fw->version);
+    dbg_log("siglen  :  %d\n", fw->siglen);
+    dbg_flush();
+    dbg_log("sig     :  %x %x .. %x %x\n", fw->sig[0], fw->sig[1], fw->sig[fw->siglen - 2], fw->sig[fw->siglen - 1]);
+    dbg_log("crc32   :  %x\n", fw->crc32);
+    dbg_flush();
+}
 
 void exti_button_handler(uint8_t irq __attribute__((unused)),
                          uint32_t sr __attribute__((unused)),
@@ -160,6 +170,8 @@ start_boot:
 #ifdef CONFIG_FIRMWARE_DUALBANK
     /* both FLIP and FLOP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE && flop_shared_vars.fw.bootable == FW_BOOTABLE) {
+        dbg_log("both firwares seems bootable\n");
+        dbg_flush();
         if (flip_shared_vars.fw.version == ERASE_VALUE) {
             boot_flip = false;
         }
@@ -185,6 +197,8 @@ start_boot:
 
     /* only FLOP can be started */
     if (flop_shared_vars.fw.bootable == FW_BOOTABLE) {
+        dbg_log("flop seems bootable\n");
+        dbg_flush();
         boot_flip = false;
         if (flop_shared_vars.fw.version == ERASE_VALUE) {
             boot_flop = false;
@@ -201,9 +215,12 @@ start_boot:
         }
         goto check_crc;
     }
-#else
+
+#endif
     /* only FLIP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE) {
+        dbg_log("flip seems bootable\n");
+        dbg_flush();
         boot_flop = false;
         if (flip_shared_vars.fw.version == ERASE_VALUE) {
             boot_flip = false;
@@ -220,10 +237,16 @@ start_boot:
         }
         goto check_crc;
     }
-#endif
 
     /* fallback, none of the above permits to go to check_crc step */
     dbg_log("panic! unable to boot on any firmware ! none bootable\n");
+    dbg_log("flip header:\n");
+    dump_fw_header(&(flip_shared_vars.fw));
+#ifdef CONFIG_FIRMWARE_DUALBANK
+    dbg_log("------------\n");
+    dbg_log("flop header:\n");
+    dump_fw_header(&(flop_shared_vars.fw));
+#endif
     dbg_flush();
     return 0;
 
