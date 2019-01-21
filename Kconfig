@@ -7,8 +7,20 @@ if LOADER_MOCKUP
 
 config LOADER_MOCKUP_DFU
     bool "Start in DFU mode"
+    ---help---
+      Boot in DFU mode of the eligible firmware automatically. This
+      behavor replace a manual push on the DFU button at boot time.
+      The loader boots the DFU mode of the currently eligible firmware
 
 
 endif
+
+config LOADER_FW_SIG_CHECK
+    bool "Check firmware authenticity at boot"
+    ---help---
+      Check that the Firmware image that is going to be booted is
+      authentified, using a cryptographic signature in the firmware
+      header. This does not deactivate the CRC32 check of the firmware
+      header structure
 
 endmenu

@@ -48,12 +48,14 @@ volatile bool dfu_mode = false;
 void dump_fw_header(const t_firmware_state *fw)
 {
     dbg_flush();
-    dbg_log("bootable:  %x\n", fw->bootable);
-    dbg_log("version :  %d\n", fw->version);
-    dbg_log("siglen  :  %d\n", fw->siglen);
+    dbg_log("magic    :  %d\n", fw->fw_sig.magic);
+    dbg_log("version  :  %d\n", fw->fw_sig.version);
+    dbg_log("siglen   :  %d\n", fw->fw_sig.siglen);
+    dbg_log("chunksize:  %d\n", fw->fw_sig.chunksize);
     dbg_flush();
-    dbg_log("sig     :  %x %x .. %x %x\n", fw->sig[0], fw->sig[1], fw->sig[fw->siglen - 2], fw->sig[fw->siglen - 1]);
-    dbg_log("crc32   :  %x\n", fw->crc32);
+    dbg_log("sig      :  %x %x .. %x %x\n", fw->fw_sig.sig[0], fw->fw_sig.sig[1], fw->fw_sig.sig[fw->fw_sig.siglen - 2], fw->fw_sig.sig[fw->fw_sig.siglen - 1]);
+    dbg_log("crc32    :  %x\n", fw->fw_sig.crc32);
+    dbg_log("bootable :  %x\n", fw->bootable);
     dbg_flush();
 }
 
@@ -164,17 +166,17 @@ int main(void)
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE && flop_shared_vars.fw.bootable == FW_BOOTABLE) {
         dbg_log("both firwares seems bootable\n");
         dbg_flush();
-        if (flip_shared_vars.fw.version == ERASE_VALUE) {
+        if (flip_shared_vars.fw.fw_sig.version == ERASE_VALUE) {
             boot_flip = false;
         }
-        if (flop_shared_vars.fw.version == ERASE_VALUE) {
+        if (flop_shared_vars.fw.fw_sig.version == ERASE_VALUE) {
             boot_flop = false;
         }
-        if (boot_flip && boot_flop && flip_shared_vars.fw.version > flop_shared_vars.fw.version) {
+        if (boot_flip && boot_flop && flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version) {
             boot_flop = false;
             fw = &flip_shared_vars.fw;
         }
-        if (boot_flip && boot_flop && flop_shared_vars.fw.version > flip_shared_vars.fw.version) {
+        if (boot_flip && boot_flop && flop_shared_vars.fw.fw_sig.version > flip_shared_vars.fw.fw_sig.version) {
             boot_flip = false;
             fw = &flop_shared_vars.fw;
         }
@@ -192,7 +194,7 @@ int main(void)
         dbg_log("flop seems bootable\n");
         dbg_flush();
         boot_flip = false;
-        if (flop_shared_vars.fw.version == ERASE_VALUE) {
+        if (flop_shared_vars.fw.fw_sig.version == ERASE_VALUE) {
             boot_flop = false;
             dbg_log("invalid version value for lonely bootable FLIP ! leaving\n");
             dbg_flush();
@@ -214,7 +216,7 @@ int main(void)
         dbg_log("flip seems bootable\n");
         dbg_flush();
         boot_flop = false;
-        if (flip_shared_vars.fw.version == ERASE_VALUE) {
+        if (flip_shared_vars.fw.fw_sig.version == ERASE_VALUE) {
             boot_flip = false;
             dbg_log("invalid version value for lonely bootable FLIP ! leaving\n");
             dbg_flush();
@@ -246,25 +248,24 @@ int main(void)
 check_crc:
 
     /* checking CRC32 header check */
-    if (fw->version != 0) {
+    if (fw->fw_sig.version != 0) {
         uint32_t crc;
         /* when version is 0, this means that this is the initial JTAG
          * flashed firmware. This firmaware doesn't have (yet) a header
          * signature */
-        crc = crc32((uint8_t*)fw, sizeof(t_firmware_state) - sizeof(uint32_t), 0xffffffff);
-        if (crc != fw->crc32) {
-            dbg_log("invalid fw header CRC32!!! leaving...\n");
+        crc = crc32((uint8_t*)fw, sizeof(t_firmware_signature) - sizeof(uint32_t), 0xffffffff);
+        /* check CRC of padding (fill field) */
+        crc = crc32((uint8_t*)fw->fill,
+                SHR_SECTOR_SIZE - sizeof(t_firmware_signature), crc);
+        /* check CRC of bootable flag  */
+        crc = crc32((uint8_t*)&fw->bootable, sizeof(uint32_t), crc);
+
+        if (crc != fw->fw_sig.crc32) {
+            dbg_log("invalid fw header CRC32: %x, %x required!!! leaving...\n", crc, fw->fw_sig.crc32);
             dbg_flush();
             return 0;
         }
     }
-
-#if 0
-    dbg_log("boot structure: default: %d\n", shared_vars.default_app_index);
-    dbg_log("boot structure: default_dfu: %d\n", shared_vars.default_dfu_index);
-    dbg_log("boot structure: fw entrypoint %x\n", shared_vars.apps[shared_vars.default_app_index].entry_point);
-    dbg_log("boot structure: dfu entrypoint %x\n", shared_vars.apps[shared_vars.default_dfu_index].entry_point);
-#endif
 
     app_entry_t  next_level = 0;
 

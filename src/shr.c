@@ -51,11 +51,16 @@
 __attribute__((section(".shared_flip")))
     const shr_vars_t flip_shared_vars = {
         .fw = {
-            .bootable = FW_BOOTABLE,
-            .version = 0,
-            .crc32 = 0x0,
-            .siglen = 0,
-            .sig = { 0x0 }
+            .fw_sig = {
+                .magic = 0x0,
+                .version = 0,
+                .siglen = 0,
+                .chunksize = 0,
+                .sig = { 0x0 },
+                .crc32 = 0x0
+            },
+            .fill = { 0xff },
+            .bootable = FW_BOOTABLE
         },
     };
 
@@ -63,11 +68,16 @@ __attribute__((section(".shared_flip")))
 __attribute__((section(".shared_flop")))
     const shr_vars_t flop_shared_vars = {
         .fw = {
-            .bootable = FW_NOT_BOOTABLE,
-            .version = 0,
-            .crc32 = 0x0,
-            .siglen = 0,
-            .sig = { 0x0 }
+            .fw_sig = {
+                .magic = 0x0,
+                .version = 0,
+                .siglen = 0,
+                .chunksize = 0,
+                .sig = { 0x0 },
+                .crc32 = 0x0
+            },
+            .fill = { 0xff },
+            .bootable = FW_NOT_BOOTABLE
         },
     };
 #endif

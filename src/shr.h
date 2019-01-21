@@ -49,17 +49,26 @@ typedef int (* app_entry_t)(void);
 /* flash erase generate 0xfffffffff content */
 #define ERASE_VALUE 0xffffffff
 
+
 typedef enum {
-    FW_BOOTABLE = 0x00110100,
-    FW_NOT_BOOTABLE = 0x11011101
+    FW_BOOTABLE = 0x53747421,
+    FW_NOT_BOOTABLE = 0x5e19be55
 } t_bootable_state;
 
 typedef struct __packed {
-    uint32_t bootable;
+    uint32_t magic;
     uint32_t version;
     uint32_t siglen;
+    uint32_t chunksize;
     uint8_t  sig[MAX_SIG_LEN];
     uint32_t crc32;
+} t_firmware_signature;
+
+
+typedef struct __packed {
+    t_firmware_signature   fw_sig;
+    uint8_t                fill[SHR_SECTOR_SIZE - sizeof(t_firmware_signature)];
+    uint32_t               bootable;
 } t_firmware_state;
 
 typedef struct __packed {
