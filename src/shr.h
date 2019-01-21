@@ -25,8 +25,7 @@
 
 #include "types.h"
 #include "autoconf.h"
-
-#define MAX_SIG_LEN 64 /* 512bit sig len */
+#include "libsig.h"
 
 #ifndef CONFIG_FIRMWARE_DUALBANK
 # ifndef CONFIG_FIRMWARE_DFU
@@ -60,7 +59,7 @@ typedef struct __packed {
     uint32_t version;
     uint32_t siglen;
     uint32_t chunksize;
-    uint8_t  sig[MAX_SIG_LEN];
+    uint8_t  sig[EC_STRUCTURED_SIG_EXPORT_SIZE(EC_MAX_SIGLEN)];
     uint32_t crc32;
 } t_firmware_signature;
 

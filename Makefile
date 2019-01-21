@@ -22,13 +22,14 @@ APP_BUILD_DIR = $(BUILD_DIR)/$(APP_NAME)
 
 CFLAGS += $(EXTRA_CFLAGS)
 CFLAGS += $(DEBUG_CFLAGS)
+CFLAGS += $(LIBSIGN_CFLAGS)
 CFLAGS += -ffreestanding
 CFLAGS += -I$(PROJ_FILES)/kernel/shared
 CFLAGS += -Isrc/ -Iinc/ -I$(PROJ_FILES)/kernel/arch -I$(PROJ_FILES)/kernel -I$(PROJ_FILES)/externals/libecc/src
 CFLAGS += -MMD -MP
 
 LDFLAGS += -Tloader.ld -L$(APP_BUILD_DIR) $(AFLAGS) -fno-builtin -nostdlib -nostartfiles
-LD_LIBS += $(APP_BUILD_DIR)/libbsp/libbsp.a -L$(APP_BUILD_DIR) -L$(APP_BUILD_DIR)/libbsp
+LD_LIBS += $(APP_BUILD_DIR)/libbsp/libbsp.a $(LIBSIGN) -L$(APP_BUILD_DIR) -L$(APP_BUILD_DIR)/libbsp
 ifeq ($(CONFIG_ADAKERNEL),y)
 LD_LIBS += -labsp -L$(APP_BUILD_DIR)/libbsp/Ada/lib
 LD_LIBS += -lgnat -L$(BUILD_DIR)/kernel/libgnat
