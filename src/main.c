@@ -26,6 +26,7 @@
 #include "leds.h"
 #include "crc32.h"
 #include "exported/gpio.h"
+#include "hash.h"
 
 /**
  *  Ref DocID022708 Rev 4 p.141
@@ -157,22 +158,16 @@ int main(void)
         dbg_log("Booting...\n");
     }
 
-    bool boot_flip = true;
-    bool boot_flop = true;
+    bool boot_flip = false;
+    bool boot_flop = false;
     const t_firmware_state *fw = 0;
-
 #ifdef CONFIG_FIRMWARE_DUALBANK
     /* both FLIP and FLOP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE && flop_shared_vars.fw.bootable == FW_BOOTABLE) {
-        dbg_log("both firwares seems bootable\n");
+        boot_flip = boot_flop = true;
+        dbg_log("Both firwares have FW_BOOTABLE\n");
         dbg_flush();
-        if (flip_shared_vars.fw.fw_sig.version == ERASE_VALUE) {
-            boot_flip = false;
-        }
-        if (flop_shared_vars.fw.fw_sig.version == ERASE_VALUE) {
-            boot_flop = false;
-        }
-        if (boot_flip && boot_flop && flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version) {
+        if (flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version) {
             boot_flop = false;
             fw = &flip_shared_vars.fw;
         }
@@ -182,57 +177,46 @@ int main(void)
         }
         /* end of select sanitize... */
         if (!fw) {
-            dbg_log("Unable to choose ! leaving!\n");
+            dbg_log("Unable to choose! leaving!\n");
             dbg_flush();
-            return 0;
+            goto err;
         }
         goto check_crc;
     }
 
     /* only FLOP can be started */
     if (flop_shared_vars.fw.bootable == FW_BOOTABLE) {
+        boot_flop = true;
         dbg_log("flop seems bootable\n");
         dbg_flush();
         boot_flip = false;
-        if (flop_shared_vars.fw.fw_sig.version == ERASE_VALUE) {
-            boot_flop = false;
-            dbg_log("invalid version value for lonely bootable FLIP ! leaving\n");
-            dbg_flush();
-            return 0;
-        }
         fw = &flop_shared_vars.fw;
         /* end of select sanitize... */
         if (!fw) {
-            dbg_log("Unable to choose ! leaving!\n");
+            dbg_log("Unable to choose! leaving!\n");
             dbg_flush();
-            return 0;
+            goto err;
         }
         goto check_crc;
     }
-
 #endif
-    /* only FLIP can be started */
+    /* In one bank configuration, only FLIP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE) {
+        boot_flip = true;
         dbg_log("flip seems bootable\n");
         dbg_flush();
         boot_flop = false;
-        if (flip_shared_vars.fw.fw_sig.version == ERASE_VALUE) {
-            boot_flip = false;
-            dbg_log("invalid version value for lonely bootable FLIP ! leaving\n");
-            dbg_flush();
-            return 0;
-        }
         fw = &flip_shared_vars.fw;
         /* end of select sanitize... */
         if (!fw) {
-            dbg_log("Unable to choose ! leaving!\n");
+            dbg_log("Unable to choose! leaving!\n");
             dbg_flush();
-            return 0;
+            goto err;
         }
         goto check_crc;
     }
 
-    /* fallback, none of the above permits to go to check_crc step */
+    /* fallback, none of the above allows to go to check_crc step */
     dbg_log("panic! unable to boot on any firmware ! none bootable\n");
     dbg_log("flip header:\n");
     dump_fw_header(&(flip_shared_vars.fw));
@@ -270,10 +254,23 @@ check_crc:
     /* check firmware integrity if activated */
 
 # if CONFIG_LOADER_FW_HASH_CHECK
-    if (!check_fw_hash(fw))
+    uint32_t partition_addr;
+    uint32_t partition_size; 
+    if(boot_flip){
+        partition_addr = FLIP_BASE;
+        partition_size = FLIP_SIZE;
+    }
+    else if(boot_flop){
+        partition_addr = FLOP_BASE;
+        partition_size = FLOP_SIZE;
+    }
+    else{
+        goto err;
+    }
+    if (!check_fw_hash(fw, partition_addr, partition_size))
     {
-        dbg_log("Error while checking firmware integrity ! Leaving !\n");
-        return 0;
+        dbg_log("Error while checking firmware integrity! Leaving \n");
+        goto err;
     }
 # endif
 
@@ -311,5 +308,7 @@ check_crc:
 
     dbg_log("error while selecting next level! leaving!\n");
 
+err:
+    while(1);
     return 0;
 }

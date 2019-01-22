@@ -31,19 +31,6 @@
 #include "autoconf.h"
 #include "shr.h"
 
-#define VTORS_SIZE 392 /* 0x188 */
-#define FW1_KERN_BASE   0x08020000
-#define DFU1_KERN_BASE  0x08030000
-
-#define FW2_KERN_BASE   0x08120000
-#define DFU2_KERN_BASE  0x08130000
-
-#define FW1_START FW1_KERN_BASE + VTORS_SIZE + 1
-#define DFU1_START DFU1_KERN_BASE + VTORS_SIZE + 1
-
-#define FW2_START FW2_KERN_BASE + VTORS_SIZE + 1
-#define DFU2_START DFU2_KERN_BASE + VTORS_SIZE + 1
-
 /* these data (.shared content) is mapped in SHR region (due to loader
  * ldscript) only when flashing the loader through the JTAG interface.
  * When using DFU and during all system boot, the SHR region is not overriden
@@ -53,11 +40,14 @@ __attribute__((section(".shared_flip")))
         .fw = {
             .fw_sig = {
                 .magic = 0x0,
+                .type = 0x0,
                 .version = 0,
                 .siglen = 0,
+                .len = 0,
                 .chunksize = 0,
                 .sig = { 0x0 },
-                .crc32 = 0x0
+                .crc32 = 0x0,
+		.hash = { 0x0 }
             },
             .fill = { 0xff },
             .bootable = FW_BOOTABLE
@@ -70,11 +60,14 @@ __attribute__((section(".shared_flop")))
         .fw = {
             .fw_sig = {
                 .magic = 0x0,
+                .type = 0x0,
                 .version = 0,
                 .siglen = 0,
+                .len = 0,
                 .chunksize = 0,
                 .sig = { 0x0 },
-                .crc32 = 0x0
+                .crc32 = 0x0,
+		.hash = { 0x0 }
             },
             .fill = { 0xff },
             .bootable = FW_NOT_BOOTABLE

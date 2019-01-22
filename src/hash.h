@@ -3,10 +3,10 @@
 
 #include "autoconf.h"
 #include "types.h"
-#include "libsig.h"
+#include "shr.h"
 
 # if CONFIG_LOADER_FW_HASH_CHECK
-bool check_fw_hash(t_firmware_state *fw);
+bool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, uint32_t partition_size);
 
 # endif
 

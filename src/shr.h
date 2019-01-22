@@ -27,6 +27,23 @@
 #include "autoconf.h"
 #include "libsig.h"
 
+/* FIXME: migrate to unified layer from json asap */
+#define FLIP_BASE       0x08020000
+#define FLIP_SIZE       0xe0000
+#define FW1_KERN_BASE   0x08020000
+#define DFU1_KERN_BASE  0x08030000
+
+#define FLOP_BASE       0x08020000
+#define FLOP_SIZE       0xe0000
+#define FW2_KERN_BASE   0x08120000
+#define DFU2_KERN_BASE  0x08130000
+
+#define FW1_START FW1_KERN_BASE + VTORS_SIZE + 1
+#define DFU1_START DFU1_KERN_BASE + VTORS_SIZE + 1
+
+#define FW2_START FW2_KERN_BASE + VTORS_SIZE + 1
+#define DFU2_START DFU2_KERN_BASE + VTORS_SIZE + 1
+
 #ifndef CONFIG_FIRMWARE_DUALBANK
 # ifndef CONFIG_FIRMWARE_DFU
 #  define MAX_APP_INDEX 1
@@ -56,11 +73,14 @@ typedef enum {
 
 typedef struct __packed {
     uint32_t magic;
+    uint32_t type;
     uint32_t version;
+    uint32_t len;
     uint32_t siglen;
     uint32_t chunksize;
-    uint8_t  sig[EC_STRUCTURED_SIG_EXPORT_SIZE(EC_MAX_SIGLEN)];
     uint32_t crc32;
+    uint8_t hash[SHA256_DIGEST_SIZE];
+    uint8_t  sig[EC_STRUCTURED_SIG_EXPORT_SIZE(EC_MAX_SIGLEN)];
 } t_firmware_signature;
 
 
