@@ -45,17 +45,38 @@ app_entry_t dfu2_main = (app_entry_t) (DFU2_START);
 
 volatile bool dfu_mode = false;
 
+void hexdump(const uint8_t *bin, uint32_t len)
+{
+  for (uint32_t i = 0; i < len; i++) {
+    dbg_log("%x ", bin[i]);
+    if (i % 16 == 0 && i != 0) {
+      dbg_log("\n");
+    }
+    dbg_flush();
+  }
+  dbg_log("\n");
+  dbg_flush();
+}
 
 void dump_fw_header(const t_firmware_state *fw)
 {
     dbg_flush();
-    dbg_log("magic    :  %d\n", fw->fw_sig.magic);
-    dbg_log("version  :  %d\n", fw->fw_sig.version);
-    dbg_log("siglen   :  %d\n", fw->fw_sig.siglen);
-    dbg_log("chunksize:  %d\n", fw->fw_sig.chunksize);
+    dbg_log("magic    :  %x\n", fw->fw_sig.magic);
+    dbg_log("version  :  %x\n", fw->fw_sig.version);
+    dbg_log("siglen   :  %x\n", fw->fw_sig.siglen);
+    dbg_log("len      :  %x\n", fw->fw_sig.len);
+    dbg_log("chunksize:  %x\n", fw->fw_sig.chunksize);
+    dbg_log("sig      :\n");
     dbg_flush();
-    dbg_log("sig      :  %x %x .. %x %x\n", fw->fw_sig.sig[0], fw->fw_sig.sig[1], fw->fw_sig.sig[fw->fw_sig.siglen - 2], fw->fw_sig.sig[fw->fw_sig.siglen - 1]);
+    if (fw->fw_sig.siglen) {
+        hexdump(fw->fw_sig.sig, fw->fw_sig.siglen);
+    } else {
+        hexdump(fw->fw_sig.sig, EC_STRUCTURED_SIG_EXPORT_SIZE(EC_MAX_SIGLEN));
+    }
+    dbg_flush();
     dbg_log("crc32    :  %x\n", fw->fw_sig.crc32);
+    dbg_log("bash     :\n");
+        hexdump(fw->fw_sig.hash, SHA256_DIGEST_SIZE);
     dbg_log("bootable :  %x\n", fw->bootable);
     dbg_flush();
 }
@@ -230,24 +251,29 @@ int main(void)
 
 
 check_crc:
-
-    /* checking CRC32 header check */
-    if (fw->fw_sig.version != 0) {
-        uint32_t crc;
-        /* when version is 0, this means that this is the initial JTAG
-         * flashed firmware. This firmaware doesn't have (yet) a header
-         * signature */
-        crc = crc32((uint8_t*)fw, sizeof(t_firmware_signature) - sizeof(uint32_t), 0xffffffff);
+    {
+        uint32_t buf = 0xffffffff;
+#if LOADER_DEBUG
+        dump_fw_header(fw);
+#endif
+        uint32_t crc = 0;
+        /* checking CRC32 header check */
+        crc = crc32((uint8_t*)fw, sizeof(t_firmware_signature) - sizeof(uint32_t) - SHA256_DIGEST_SIZE - EC_STRUCTURED_SIG_EXPORT_SIZE(EC_MAX_SIGLEN), 0xffffffff);
+        crc = crc32((uint8_t*)&buf, sizeof(uint32_t), crc);
+        crc = crc32((uint8_t*)fw->fw_sig.hash, SHA256_DIGEST_SIZE, crc);
+        for (uint32_t i = 0; i <  EC_STRUCTURED_SIG_EXPORT_SIZE(EC_MAX_SIGLEN); ++i) {
+            crc = crc32((uint8_t*)&buf, sizeof(uint8_t), crc);
+        }
         /* check CRC of padding (fill field) */
-        crc = crc32((uint8_t*)fw->fill,
-                SHR_SECTOR_SIZE - sizeof(t_firmware_signature), crc);
+        crc = crc32((uint8_t*)fw->fill, SHR_SECTOR_SIZE - sizeof(t_firmware_signature), crc);
         /* check CRC of bootable flag  */
         crc = crc32((uint8_t*)&fw->bootable, sizeof(uint32_t), crc);
+        crc = crc32((uint8_t*)&fw->fill2, SHR_SECTOR_SIZE - sizeof(uint32_t), crc);
 
         if (crc != fw->fw_sig.crc32) {
             dbg_log("invalid fw header CRC32: %x, %x required!!! leaving...\n", crc, fw->fw_sig.crc32);
             dbg_flush();
-            return 0;
+            goto err;
         }
     }
 
@@ -255,12 +281,12 @@ check_crc:
 
 # if CONFIG_LOADER_FW_HASH_CHECK
     uint32_t partition_addr;
-    uint32_t partition_size; 
-    if(boot_flip){
+    uint32_t partition_size;
+    if (boot_flip){
         partition_addr = FLIP_BASE;
         partition_size = FLIP_SIZE;
     }
-    else if(boot_flop){
+    else if (boot_flop){
         partition_addr = FLOP_BASE;
         partition_size = FLOP_SIZE;
     }
@@ -270,6 +296,7 @@ check_crc:
     if (!check_fw_hash(fw, partition_addr, partition_size))
     {
         dbg_log("Error while checking firmware integrity! Leaving \n");
+        dbg_flush();
         goto err;
     }
 # endif

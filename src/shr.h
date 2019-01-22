@@ -88,6 +88,7 @@ typedef struct __packed {
     t_firmware_signature   fw_sig;
     uint8_t                fill[SHR_SECTOR_SIZE - sizeof(t_firmware_signature)];
     uint32_t               bootable;
+    uint8_t                fill2[SHR_SECTOR_SIZE - sizeof(uint32_t)];
 } t_firmware_state;
 
 typedef struct __packed {
