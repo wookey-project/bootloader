@@ -71,7 +71,7 @@ void dump_fw_header(const t_firmware_state *fw)
     if (fw->fw_sig.siglen) {
         hexdump(fw->fw_sig.sig, fw->fw_sig.siglen);
     } else {
-        hexdump(fw->fw_sig.sig, EC_STRUCTURED_SIG_EXPORT_SIZE(EC_MAX_SIGLEN));
+        hexdump(fw->fw_sig.sig, EC_MAX_SIGLEN);
     }
     dbg_flush();
     dbg_log("crc32    :  %x\n", fw->fw_sig.crc32);
@@ -258,10 +258,10 @@ check_crc:
 #endif
         uint32_t crc = 0;
         /* checking CRC32 header check */
-        crc = crc32((uint8_t*)fw, sizeof(t_firmware_signature) - sizeof(uint32_t) - SHA256_DIGEST_SIZE - EC_STRUCTURED_SIG_EXPORT_SIZE(EC_MAX_SIGLEN), 0xffffffff);
+        crc = crc32((uint8_t*)fw, sizeof(t_firmware_signature) - sizeof(uint32_t) - SHA256_DIGEST_SIZE - EC_MAX_SIGLEN, 0xffffffff);
         crc = crc32((uint8_t*)&buf, sizeof(uint32_t), crc);
         crc = crc32((uint8_t*)fw->fw_sig.hash, SHA256_DIGEST_SIZE, crc);
-        for (uint32_t i = 0; i <  EC_STRUCTURED_SIG_EXPORT_SIZE(EC_MAX_SIGLEN); ++i) {
+        for (uint32_t i = 0; i <  EC_MAX_SIGLEN; ++i) {
             crc = crc32((uint8_t*)&buf, sizeof(uint8_t), crc);
         }
         /* check CRC of padding (fill field) */

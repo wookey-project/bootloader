@@ -13,8 +13,6 @@ bool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, uin
 
     /* Sanity check */
     if(fw->fw_sig.len > partition_size){
-        dbg_log("invalid len: %d\n", fw->fw_sig.len);
-        dbg_log("partition size %d\n", partition_size);
         goto err;
     }
 
@@ -38,9 +36,6 @@ bool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, uin
 
     sha256_final(&sha256_ctx, digest);
 
-    dbg_log("digest calculated:\n");
-    dbg_flush();
-    hexdump(digest, SHA256_DIGEST_SIZE);
     if(!are_equal(digest, fw->fw_sig.hash, SHA256_DIGEST_SIZE)){
         goto err;
     }

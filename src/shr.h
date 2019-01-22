@@ -33,7 +33,7 @@
 #define FW1_KERN_BASE   0x08020000
 #define DFU1_KERN_BASE  0x08030000
 
-#define FLOP_BASE       0x08020000
+#define FLOP_BASE       0x08120000
 #define FLOP_SIZE       0xe0000
 #define FW2_KERN_BASE   0x08120000
 #define DFU2_KERN_BASE  0x08130000
@@ -80,7 +80,7 @@ typedef struct __packed {
     uint32_t chunksize;
     uint32_t crc32;
     uint8_t hash[SHA256_DIGEST_SIZE];
-    uint8_t  sig[EC_STRUCTURED_SIG_EXPORT_SIZE(EC_MAX_SIGLEN)];
+    uint8_t  sig[EC_MAX_SIGLEN];
 } t_firmware_signature;
 
 
