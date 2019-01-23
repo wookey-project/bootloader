@@ -187,6 +187,8 @@ int main(void)
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE && flop_shared_vars.fw.bootable == FW_BOOTABLE) {
         boot_flip = boot_flop = true;
         dbg_log("Both firwares have FW_BOOTABLE\n");
+        dbg_log("\x1b[33;43mflip version: %d\x1b[37;40m\n", flip_shared_vars.fw.fw_sig.version);
+        dbg_log("\x1b[33;43mflop version: %d\x1b[37;40m\n", flop_shared_vars.fw.fw_sig.version);
         dbg_flush();
         if (flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version) {
             boot_flop = false;
@@ -209,6 +211,7 @@ int main(void)
     if (flop_shared_vars.fw.bootable == FW_BOOTABLE) {
         boot_flop = true;
         dbg_log("flop seems bootable\n");
+        dbg_log("\x1b[37;43mflop version: %d\x1b[37;40m\n", flop_shared_vars.fw.fw_sig.version);
         dbg_flush();
         boot_flip = false;
         fw = &flop_shared_vars.fw;
@@ -223,6 +226,7 @@ int main(void)
 #endif
     /* In one bank configuration, only FLIP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE) {
+        dbg_log("\x1b[37;43mflip version: %d\x1b[37;40m\n", flip_shared_vars.fw.fw_sig.version);
         boot_flip = true;
         dbg_log("flip seems bootable\n");
         dbg_flush();
@@ -305,20 +309,24 @@ check_crc:
 
     if (dfu_mode) {
         if (boot_flip) {
+            dbg_log("\x1b[37;41mbooting FLIP in DFU mode\x1b[37;40m\n");
             dbg_log("Jumping to DFU mode: %x\n", DFU1_START);
             next_level = (app_entry_t)DFU1_START;
         }
         if (boot_flop) {
+            dbg_log("\x1b[37;41mbooting FLOP in DFU mode\x1b[37;40m\n");
             dbg_log("Jumping to DFU mode: %x\n", DFU2_START);
             next_level = (app_entry_t)DFU2_START;
         }
         dbg_flush();
     } else {
         if (boot_flip) {
+            dbg_log("\x1b[37;41mbooting FLIP in nominal mode\x1b[37;40m\n");
             dbg_log("Jumping to FW mode: %x\n", FW1_START);
             next_level = (app_entry_t)FW1_START;
         }
         if (boot_flop) {
+            dbg_log("\x1b[37;41mbooting FLOP in nominal mode\x1b[37;40m\n");
             dbg_log("Jumping to FW mode: %x\n", FW2_START);
             next_level = (app_entry_t)FW2_START;
         }
