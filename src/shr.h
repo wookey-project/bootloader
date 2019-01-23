@@ -65,6 +65,10 @@ typedef int (* app_entry_t)(void);
 /* flash erase generate 0xfffffffff content */
 #define ERASE_VALUE 0xffffffff
 
+typedef enum {
+        PART_FLIP = 0,
+        PART_FLOP = 1,
+} partitions_types;
 
 typedef enum {
     FW_BOOTABLE = 0x53747421,

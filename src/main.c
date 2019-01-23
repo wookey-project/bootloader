@@ -274,7 +274,7 @@ int main(void)
     }
 
     /* fallback, none of the above allows to go to check_crc step */
-    dbg_log("panic! unable to boot on any firmware ! none bootable\n");
+    dbg_log("Panic! unable to boot on any firmware! none bootable\n");
     dbg_log("flip header:\n");
     dump_fw_header(&(flip_shared_vars.fw));
 #ifdef CONFIG_FIRMWARE_DUALBANK
@@ -283,10 +283,29 @@ int main(void)
     dump_fw_header(&(flop_shared_vars.fw));
 #endif
     dbg_flush();
-    return 0;
-
+    goto err;
 
 check_crc:
+    {
+        /* Sanity check on the current selected partition and the header in flash */
+        if(boot_flip == true){
+            if(fw->fw_sig.type != PART_FLIP){
+                dbg_log("Error: FLIP selected, but partition type in flash header is not conforming!\n");
+                dbg_flush();
+                goto err;
+            }
+        }
+        else if(boot_flop == true){
+            if(fw->fw_sig.type != PART_FLOP){
+                dbg_log("Error: FLOP selected, but partition type in flash header is not conforming!\n");
+                dbg_flush();
+                goto err;
+            }
+        }
+        else{
+           goto err;
+        }
+    }
     {
         uint32_t buf = 0xffffffff;
 #if LOADER_DEBUG
@@ -396,6 +415,8 @@ check_crc:
     dbg_log("error while selecting next level! leaving!\n");
 
 err:
+    dbg_log("Loader inifinite loop due to an error ...\n");
+    dbg_flush();
     while(1);
     return 0;
 }
