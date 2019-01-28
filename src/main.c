@@ -283,7 +283,7 @@ check_crc:
 
     /* check firmware integrity if activated */
 
-# if CONFIG_LOADER_FW_HASH_CHECK
+# ifdef CONFIG_LOADER_FW_HASH_CHECK
     uint32_t partition_addr;
     uint32_t partition_size;
     if (boot_flip){
