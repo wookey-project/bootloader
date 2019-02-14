@@ -43,6 +43,10 @@ app_entry_t fw2_main = (app_entry_t) (FW2_START);
 app_entry_t dfu2_main = (app_entry_t) (DFU2_START);
 #endif
 
+#ifdef CONFIG_FIRMWARE_DFU
+dev_gpio_info_t gpio = { 0 };
+#endif
+
 volatile bool dfu_mode = false;
 
 void hexdump(const uint8_t *bin, uint32_t len)
@@ -85,7 +89,13 @@ void exti_button_handler(uint8_t irq __attribute__((unused)),
                          uint32_t sr __attribute__((unused)),
                          uint32_t dr __attribute__((unused)))
 {
-  dfu_mode = true;
+    dfu_mode = true;
+    /* Security info:
+     * DFU mode request is registered. Just don't try to freeze
+     * the boot sequence by generating EXTI interrupt burst
+     * The Exti-lock feature is an EwoK feature, not a loader feature
+     */
+    soc_exti_disable(gpio.kref);
 }
 
 extern const shr_vars_t flip_shared_vars;
@@ -138,23 +148,23 @@ int main(void)
     soc_exti_init();
     dbg_log("registering button on GPIO E4\n");
     dbg_flush();
-    dev_gpio_info_t gpio = {
-        .kref.port = GPIO_PE,
-        .kref.pin = 4,
-        .mask = GPIO_MASK_SET_MODE | GPIO_MASK_SET_PUPD |
-            GPIO_MASK_SET_TYPE | GPIO_MASK_SET_SPEED |
-            GPIO_MASK_SET_EXTI,
-        .mode = GPIO_PIN_INPUT_MODE,
-        .pupd = GPIO_PULLDOWN,
-        .type = GPIO_PIN_OTYPER_PP,
-        .speed = GPIO_PIN_LOW_SPEED,
-        .afr = 0,
-        .bsr_r = 0,
-        .lck = 0,
-        .exti_trigger = GPIO_EXTI_TRIGGER_RISE,
-        .exti_lock = GPIO_EXTI_LOCKED,
-        .exti_handler = (user_handler_t) exti_button_handler
-    };
+
+    gpio.kref.port = GPIO_PE;
+    gpio.kref.pin = 4;
+    gpio.mask = GPIO_MASK_SET_MODE | GPIO_MASK_SET_PUPD |
+        GPIO_MASK_SET_TYPE | GPIO_MASK_SET_SPEED |
+        GPIO_MASK_SET_EXTI;
+    gpio.mode = GPIO_PIN_INPUT_MODE;
+    gpio.pupd = GPIO_PULLDOWN;
+    gpio.type = GPIO_PIN_OTYPER_PP;
+    gpio.speed = GPIO_PIN_LOW_SPEED;
+    gpio.afr = 0;
+    gpio.bsr_r = 0;
+    gpio.lck = 0;
+    gpio.exti_trigger = GPIO_EXTI_TRIGGER_RISE;
+    gpio.exti_lock = GPIO_EXTI_LOCKED;
+    gpio.exti_handler = (user_handler_t) exti_button_handler;
+
     soc_gpio_set_config(&gpio);
     soc_exti_config(&gpio);
     soc_exti_enable(gpio.kref);

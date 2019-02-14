@@ -30,10 +30,6 @@ CFLAGS += -MMD -MP
 
 LDFLAGS += -Tloader.ld -L$(APP_BUILD_DIR) $(AFLAGS) -fno-builtin -nostdlib -nostartfiles
 LD_LIBS += $(APP_BUILD_DIR)/libbsp/libbsp.a $(LIBSIGN) -L$(APP_BUILD_DIR) -L$(APP_BUILD_DIR)/libbsp
-ifeq ($(CONFIG_ADAKERNEL),y)
-LD_LIBS += -labsp -L$(APP_BUILD_DIR)/libbsp/Ada/lib
-LD_LIBS += -lgnat -L$(BUILD_DIR)/kernel/libgnat
-endif
 
 BUILD_DIR ?= $(PROJ_FILE)build
 
