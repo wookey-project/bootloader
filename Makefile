@@ -13,9 +13,9 @@ VERSION = 1
 -include $(PROJ_FILES)/Makefile.gen
 
 # libbsp includes
--include $(PROJ_FILES)/kernel/arch/socs/$(SOC)/Makefile.objs
--include $(PROJ_FILES)/kernel/arch/cores/$(ARCH)/Makefile.objs
--include $(PROJ_FILES)/kernel/arch/boards/Makefile.objs
+-include $(PROJ_FILES)/kernel/src/arch/socs/$(SOC)/Makefile.objs
+-include $(PROJ_FILES)/kernel/src/arch/cores/$(ARCH)/Makefile.objs
+-include $(PROJ_FILES)/kernel/src/arch/boards/Makefile.objs
 
 # use an app-specific build dir
 APP_BUILD_DIR = $(BUILD_DIR)/$(APP_NAME)
@@ -24,8 +24,7 @@ CFLAGS += $(EXTRA_CFLAGS)
 CFLAGS += $(DEBUG_CFLAGS)
 CFLAGS += $(LIBSIGN_CFLAGS)
 CFLAGS += -ffreestanding
-CFLAGS += -I$(PROJ_FILES)/kernel/shared
-CFLAGS += -Isrc/ -Iinc/ -I$(PROJ_FILES)/kernel/arch -I$(PROJ_FILES)/kernel -I$(PROJ_FILES)/externals/libecc/src
+CFLAGS += -Isrc/ -Iinc/ -I$(PROJ_FILES)/kernel/src/arch -I$(PROJ_FILES)/kernel/src -I$(PROJ_FILES)/externals/libecc/src
 CFLAGS += -MMD -MP
 
 LDFLAGS += -Tloader.ld -L$(APP_BUILD_DIR) $(AFLAGS) -fno-builtin -nostdlib -nostartfiles
@@ -38,7 +37,7 @@ SRC := $(wildcard $(CSRC_DIR)/*.c)
 OBJ := $(patsubst %.c,$(APP_BUILD_DIR)/%.o,$(SRC))
 
 # startup file, for kernel and loader only
-SOC_DIR = $(PROJ_FILES)/kernel/arch/socs/$(SOC)
+SOC_DIR = $(PROJ_FILES)/kernel/src/arch/socs/$(SOC)
 SOC_SRC := startup_$(SOC).s
 SOC_OBJ := $(patsubst %.s,$(APP_BUILD_DIR)/%.o,$(SOC_SRC))
 
