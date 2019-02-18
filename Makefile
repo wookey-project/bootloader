@@ -114,8 +114,13 @@ $(ROBJ): $(RSRC)
 	$(call if_changed,rc_o_rs)
 
 # LDSCRIPT
-$(LDSCRIPT_NAME):
+ifeq (y, $(CONFIG_FIRMWARE_MODE_MONO_BANK))
+$(LDSCRIPT_NAME): loader.monobank.ld.in
 	$(call if_changed,k_ldscript)
+else
+$(LDSCRIPT_NAME): loader.dualbank.ld.in
+	$(call if_changed,k_ldscript)
+endif
 
 # ELF
 $(APP_BUILD_DIR)/$(ELF_NAME): $(LDSCRIPT_NAME) $(ROBJ) $(OBJ) $(SOBJ) $(SOC_OBJ)

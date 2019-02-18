@@ -85,6 +85,7 @@ void dump_fw_header(const t_firmware_state *fw)
     dbg_flush();
 }
 
+#ifdef CONFIG_FIRMWARE_DFU
 void exti_button_handler(uint8_t irq __attribute__((unused)),
                          uint32_t sr __attribute__((unused)),
                          uint32_t dr __attribute__((unused)))
@@ -97,6 +98,7 @@ void exti_button_handler(uint8_t irq __attribute__((unused)),
      */
     soc_exti_disable(gpio.kref);
 }
+#endif
 
 extern const shr_vars_t flip_shared_vars;
 #ifdef CONFIG_FIRMWARE_DUALBANK

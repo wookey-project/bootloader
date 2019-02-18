@@ -1,3 +1,4 @@
+#include "autoconf.h"
 #include "soc-interrupts.h"
 #include "soc-nvic.h"
 #include "debug.h"
@@ -32,7 +33,9 @@ static inline void exti_handle_line(uint8_t        exti_line,
 #pragma GCC diagnostic pop
 
     NVIC_ClearPendingIRQ((uint32_t)(irq - 0x10));
+#ifdef CONFIG_FIRMWARE_DFU
     exti_button_handler(irq, 0, 0);
+#endif
 
 }
 
