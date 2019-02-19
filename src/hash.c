@@ -59,8 +59,11 @@ secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, 
 #if __clang__
 # pragma clang optimize off
 #endif
-    /* Double check for faults */
+    /* Multiple checks for faults */
     if(!are_equal(digest, fw->fw_sig.hash, SHA256_DIGEST_SIZE)){
+        goto err;
+    }
+    if(!are_equal(fw->fw_sig.hash, digest, SHA256_DIGEST_SIZE)){
         goto err;
     }
     if(!are_equal(digest, fw->fw_sig.hash, SHA256_DIGEST_SIZE)){

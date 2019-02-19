@@ -214,7 +214,7 @@ int main(void)
 
 #ifdef CONFIG_FIRMWARE_DUALBANK
 #if __GNUG__
-# pragma GCC push_options 
+# pragma GCC push_options
 # pragma GCC optimize("O0")
 #endif
 #if __clang__
@@ -421,7 +421,7 @@ check_crc:
             dbg_log("Jumping to DFU mode: %x\n", DFU1_START);
             next_level = (app_entry_t)DFU1_START;
         }
-        if ((boot_flip == secfalse) && (boot_flop == sectrue)) {
+        else if ((boot_flip == secfalse) && (boot_flop == sectrue)) {
             dbg_log("locking local bank write\n");
             flash_unlock_opt();
             flash_writeunlock_bank1();
@@ -431,8 +431,11 @@ check_crc:
             dbg_log("Jumping to DFU mode: %x\n", DFU2_START);
             next_level = (app_entry_t)DFU2_START;
         }
+        else{
+            goto err;
+        }
         dbg_flush();
-    } else {
+    } else if (dfu_mode == secfalse) {
         if (boot_flip == sectrue) {
             dbg_log("locking flash write\n");
             flash_unlock_opt();
@@ -443,7 +446,7 @@ check_crc:
             dbg_log("Jumping to FW mode: %x\n", FW1_START);
             next_level = (app_entry_t)FW1_START;
         }
-        if ((boot_flip == secfalse) && (boot_flop == sectrue)) {
+        else if ((boot_flip == secfalse) && (boot_flop == sectrue)) {
             dbg_log("locking flash write\n");
             flash_unlock_opt();
             flash_writelock_bank1();
@@ -453,7 +456,13 @@ check_crc:
             dbg_log("Jumping to FW mode: %x\n", FW2_START);
             next_level = (app_entry_t)FW2_START;
         }
+        else{
+            goto err;
+        }
         dbg_flush();
+    }
+    else{
+        goto err;
     }
     dbg_log("Geronimo !\n");
     dbg_flush();
