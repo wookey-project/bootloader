@@ -28,6 +28,7 @@
 #include "exported/gpio.h"
 #include "hash.h"
 #include "flash.h"
+#include "types.h"
 
 /**
  *  Ref DocID022708 Rev 4 p.141
@@ -48,7 +49,7 @@ app_entry_t dfu2_main = (app_entry_t) (DFU2_START);
 dev_gpio_info_t gpio = { 0 };
 #endif
 
-volatile bool dfu_mode = false;
+volatile secbool dfu_mode = secfalse;
 
 void hexdump(const uint8_t *bin, uint32_t len)
 {
@@ -158,7 +159,7 @@ int main(void)
 
 #if CONFIG_LOADER_MOCKUP
 #if CONFIG_LOADER_MOCKUP_DFU
-    dfu_mode = true;
+    dfu_mode = sectrue;
 #endif
 #endif
 
@@ -200,7 +201,7 @@ int main(void)
         // in millisecs
         start = soc_dwt_getcycles() / 168000;
         do {
-        stop = soc_dwt_getcycles() / 168000;
+            stop = soc_dwt_getcycles() / 168000;
         } while (stop - start < 1000); // < 1s
         dbg_log(".");
         dbg_flush();
@@ -211,23 +212,23 @@ int main(void)
         dbg_log("Booting...\n");
     }
 
-    bool boot_flip = false;
-    bool boot_flop = false;
+    secbool boot_flip = secfalse;
+    secbool boot_flop = secfalse;
     const t_firmware_state *fw = 0;
 #ifdef CONFIG_FIRMWARE_DUALBANK
     /* both FLIP and FLOP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE && flop_shared_vars.fw.bootable == FW_BOOTABLE) {
-        boot_flip = boot_flop = true;
+        boot_flip = boot_flop = sectrue;
         dbg_log("Both firwares have FW_BOOTABLE\n");
         dbg_log("\x1b[33;43mflip version: %d\x1b[37;40m\n", flip_shared_vars.fw.fw_sig.version);
         dbg_log("\x1b[33;43mflop version: %d\x1b[37;40m\n", flop_shared_vars.fw.fw_sig.version);
         dbg_flush();
         if (flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version) {
-            boot_flop = false;
+            boot_flop = secfalse;
             fw = &flip_shared_vars.fw;
         }
         if (boot_flip && boot_flop && flop_shared_vars.fw.fw_sig.version > flip_shared_vars.fw.fw_sig.version) {
-            boot_flip = false;
+            boot_flip = secfalse;
             fw = &flop_shared_vars.fw;
         }
         /* end of select sanitize... */
@@ -241,11 +242,11 @@ int main(void)
 
     /* only FLOP can be started */
     if (flop_shared_vars.fw.bootable == FW_BOOTABLE) {
-        boot_flop = true;
+        boot_flop = sectrue;
         dbg_log("flop seems bootable\n");
         dbg_log("\x1b[37;43mflop version: %d\x1b[37;40m\n", flop_shared_vars.fw.fw_sig.version);
         dbg_flush();
-        boot_flip = false;
+        boot_flip = secfalse;
         fw = &flop_shared_vars.fw;
         /* end of select sanitize... */
         if (!fw) {
@@ -259,10 +260,10 @@ int main(void)
     /* In one bank configuration, only FLIP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE) {
         dbg_log("\x1b[37;43mflip version: %d\x1b[37;40m\n", flip_shared_vars.fw.fw_sig.version);
-        boot_flip = true;
+        boot_flip = sectrue;
         dbg_log("flip seems bootable\n");
         dbg_flush();
-        boot_flop = false;
+        boot_flop = secfalse;
         fw = &flip_shared_vars.fw;
         /* end of select sanitize... */
         if (!fw) {
@@ -288,14 +289,14 @@ int main(void)
 check_crc:
     {
         /* Sanity check on the current selected partition and the header in flash */
-        if(boot_flip == true){
+        if(boot_flip == sectrue){
             if(fw->fw_sig.type != PART_FLIP){
                 dbg_log("Error: FLIP selected, but partition type in flash header is not conforming!\n");
                 dbg_flush();
                 goto err;
             }
         }
-        else if(boot_flop == true){
+        else if((boot_flip == secfalse) && (boot_flop == sectrue)){
             if(fw->fw_sig.type != PART_FLOP){
                 dbg_log("Error: FLOP selected, but partition type in flash header is not conforming!\n");
                 dbg_flush();
@@ -325,11 +326,31 @@ check_crc:
         crc = crc32((uint8_t*)&fw->bootable, sizeof(uint32_t), crc);
         crc = crc32((uint8_t*)&fw->fill2, SHR_SECTOR_SIZE - sizeof(uint32_t), crc);
 
+#if __GNUG__
+# pragma GCC push_options
+# pragma GCC optimize("O0")
+#endif
+#if __clang__
+# pragma clang optimize off
+#endif
+	/* Double check for faults */
         if (crc != fw->fw_sig.crc32) {
             dbg_log("invalid fw header CRC32: %x, %x required!!! leaving...\n", crc, fw->fw_sig.crc32);
             dbg_flush();
             goto err;
         }
+        if (crc != fw->fw_sig.crc32) {
+            dbg_log("invalid fw header CRC32: %x, %x required!!! leaving...\n", crc, fw->fw_sig.crc32);
+            dbg_flush();
+            goto err;
+        }
+#if __clang__
+# pragma clang optimize on
+#endif
+#if __GNUG__
+# pragma GCC pop_options
+#endif
+
     }
 
     /* check firmware integrity if activated */
@@ -337,29 +358,30 @@ check_crc:
 # ifdef CONFIG_LOADER_FW_HASH_CHECK
     uint32_t partition_addr;
     uint32_t partition_size;
-    if (boot_flip){
+    if (boot_flip == sectrue){
         partition_addr = FLIP_BASE;
         partition_size = FLIP_SIZE;
     }
-    else if (boot_flop){
+    else if ((boot_flip == secfalse) && (boot_flop == sectrue)){
         partition_addr = FLOP_BASE;
         partition_size = FLOP_SIZE;
     }
     else{
         goto err;
     }
-    if (!check_fw_hash(fw, partition_addr, partition_size))
+    if (check_fw_hash(fw, partition_addr, partition_size) != sectrue)
     {
         dbg_log("Error while checking firmware integrity! Leaving \n");
         dbg_flush();
         goto err;
     }
+
 # endif
 
     app_entry_t  next_level = 0;
 
-    if (dfu_mode) {
-        if (boot_flip) {
+    if (dfu_mode == sectrue) {
+        if (boot_flip == sectrue) {
             dbg_log("locking local bank write\n");
             flash_unlock_opt();
             flash_writelock_bank1();
@@ -369,7 +391,7 @@ check_crc:
             dbg_log("Jumping to DFU mode: %x\n", DFU1_START);
             next_level = (app_entry_t)DFU1_START;
         }
-        if (boot_flop) {
+        if ((boot_flip == secfalse) && (boot_flop == sectrue)) {
             dbg_log("locking local bank write\n");
             flash_unlock_opt();
             flash_writeunlock_bank1();
@@ -381,7 +403,7 @@ check_crc:
         }
         dbg_flush();
     } else {
-        if (boot_flip) {
+        if (boot_flip == sectrue) {
             dbg_log("locking flash write\n");
             flash_unlock_opt();
             flash_writelock_bank1();
@@ -391,7 +413,7 @@ check_crc:
             dbg_log("Jumping to FW mode: %x\n", FW1_START);
             next_level = (app_entry_t)FW1_START;
         }
-        if (boot_flop) {
+        if ((boot_flip == secfalse) && (boot_flop == sectrue)) {
             dbg_log("locking flash write\n");
             flash_unlock_opt();
             flash_writelock_bank1();
@@ -407,6 +429,11 @@ check_crc:
     dbg_flush();
     disable_irq();
 
+    /* Sanity check */
+    if(  (next_level != (app_entry_t)DFU1_START) && (next_level != (app_entry_t)DFU2_START)
+      && (next_level != (app_entry_t)FW1_START) && (next_level != (app_entry_t)FW2_START)){
+        goto err;
+    }
 
     if (next_level) {
         next_level();
@@ -415,6 +442,7 @@ check_crc:
     dbg_log("error while selecting next level! leaving!\n");
 
 err:
+    /* FIXME: reset the platform. Infinite loop is error prone. */
     dbg_log("Loader inifinite loop due to an error ...\n");
     dbg_flush();
     while(1);
