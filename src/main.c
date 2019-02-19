@@ -212,10 +212,17 @@ int main(void)
         dbg_log("Booting...\n");
     }
 
+#ifdef CONFIG_FIRMWARE_DUALBANK
+#if __GNUG__
+# pragma GCC push_options 
+# pragma GCC optimize("O0")
+#endif
+#if __clang__
+# pragma clang optimize off
+#endif
     secbool boot_flip = secfalse;
     secbool boot_flop = secfalse;
     const t_firmware_state *fw = 0;
-#ifdef CONFIG_FIRMWARE_DUALBANK
     /* both FLIP and FLOP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE && flop_shared_vars.fw.bootable == FW_BOOTABLE) {
         boot_flip = boot_flop = sectrue;
@@ -224,12 +231,26 @@ int main(void)
         dbg_log("\x1b[33;43mflop version: %d\x1b[37;40m\n", flop_shared_vars.fw.fw_sig.version);
         dbg_flush();
         if (flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version) {
+            /* Sanity check agaist fault on rollback */
+	    if(!(flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version)){
+                goto err;
+	    }
             boot_flop = secfalse;
             fw = &flip_shared_vars.fw;
+	    if(!(flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version)){
+                goto err;
+	    }
         }
-        if (boot_flip && boot_flop && flop_shared_vars.fw.fw_sig.version > flip_shared_vars.fw.fw_sig.version) {
+        if ((boot_flip == sectrue) && (boot_flop == sectrue) && (flop_shared_vars.fw.fw_sig.version > flip_shared_vars.fw.fw_sig.version)) {
+            /* Sanity check agaist fault on rollback */
+            if(!((boot_flip == sectrue) && (boot_flop == sectrue) && (flop_shared_vars.fw.fw_sig.version > flip_shared_vars.fw.fw_sig.version))){
+                goto err;
+            }
             boot_flip = secfalse;
             fw = &flop_shared_vars.fw;
+            if(!((boot_flip == sectrue) && (boot_flop == sectrue) && (flop_shared_vars.fw.fw_sig.version > flip_shared_vars.fw.fw_sig.version))){
+                goto err;
+            }
         }
         /* end of select sanitize... */
         if (!fw) {
@@ -239,9 +260,11 @@ int main(void)
         }
         goto check_crc;
     }
-
     /* only FLOP can be started */
     if (flop_shared_vars.fw.bootable == FW_BOOTABLE) {
+        if(!(flop_shared_vars.fw.bootable == FW_BOOTABLE)){
+            goto err;
+        }
         boot_flop = sectrue;
         dbg_log("flop seems bootable\n");
         dbg_log("\x1b[37;43mflop version: %d\x1b[37;40m\n", flop_shared_vars.fw.fw_sig.version);
@@ -256,6 +279,13 @@ int main(void)
         }
         goto check_crc;
     }
+#if __clang__
+# pragma clang optimize on
+#endif
+#if __GNUG__
+# pragma GCC pop_options
+#endif
+
 #endif
     /* In one bank configuration, only FLIP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE) {
