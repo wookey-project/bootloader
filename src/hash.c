@@ -5,12 +5,6 @@
 
 # ifdef CONFIG_LOADER_FW_HASH_CHECK
 
-secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, uint32_t partition_size)
-{
-    sha256_context sha256_ctx;
-    uint8_t digest[SHA256_DIGEST_SIZE];
-    uint32_t tmp;
-
 #if __GNUC__
 # pragma GCC push_options
 # pragma GCC optimize("O0")
@@ -18,6 +12,12 @@ secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, 
 #if __clang__
 # pragma clang optimize off
 #endif
+secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, uint32_t partition_size)
+{
+    sha256_context sha256_ctx;
+    uint8_t digest[SHA256_DIGEST_SIZE];
+    uint32_t tmp;
+
     /* Double sanity check (for faults) */
     if(fw->fw_sig.len > partition_size){
         goto err;
@@ -25,12 +25,6 @@ secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, 
     if(fw->fw_sig.len > partition_size){
         goto err;
     }
-#if __clang__
-# pragma clang optimize on
-#endif
-#if __GNUC__
-# pragma GCC pop_options
-#endif
 
     sha256_init(&sha256_ctx);
     /* Begin to hash the header */
@@ -52,13 +46,6 @@ secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, 
 
     sha256_final(&sha256_ctx, digest);
 
-#if __GNUC__
-# pragma GCC push_options
-# pragma GCC optimize("O0")
-#endif
-#if __clang__
-# pragma clang optimize off
-#endif
     /* Multiple checks for faults */
     if(!are_equal(digest, fw->fw_sig.hash, SHA256_DIGEST_SIZE)){
         goto err;
@@ -69,18 +56,17 @@ secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, 
     if(!are_equal(digest, fw->fw_sig.hash, SHA256_DIGEST_SIZE)){
         goto err;
     }
-#if __clang__
-# pragma clang optimize on
-#endif
-#if __GNUC__
-# pragma GCC pop_options
-#endif
-
 
     return sectrue;
 
 err:
     return secfalse;
 }
+#if __clang__
+# pragma clang optimize on
+#endif
+#if __GNUC__
+# pragma GCC pop_options
+#endif
 
 # endif

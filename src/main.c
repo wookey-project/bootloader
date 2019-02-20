@@ -108,6 +108,14 @@ extern const shr_vars_t flop_shared_vars;
 #endif
     volatile uint32_t count = 2;
 
+/* NOTE: O0 for fault attacks protections */
+#if __GNUC__
+# pragma GCC push_options
+# pragma GCC optimize("O0")
+#endif
+#if __clang__
+# pragma clang optimize off
+#endif
 /*
  * We use the local -fno-stack-protector flag for main because
  * the stack protection has not been initialized yet.
@@ -213,13 +221,6 @@ int main(void)
     }
 
 #ifdef CONFIG_FIRMWARE_DUALBANK
-#if __GNUC__
-# pragma GCC push_options
-# pragma GCC optimize("O0")
-#endif
-#if __clang__
-# pragma clang optimize off
-#endif
     secbool boot_flip = secfalse;
     secbool boot_flop = secfalse;
     const t_firmware_state *fw = 0;
@@ -279,12 +280,7 @@ int main(void)
         }
         goto check_crc;
     }
-#if __clang__
-# pragma clang optimize on
-#endif
-#if __GNUC__
-# pragma GCC pop_options
-#endif
+
 
 #endif
     /* In one bank configuration, only FLIP can be started */
@@ -356,13 +352,6 @@ check_crc:
         crc = crc32((uint8_t*)&fw->bootable, sizeof(uint32_t), crc);
         crc = crc32((uint8_t*)&fw->fill2, SHR_SECTOR_SIZE - sizeof(uint32_t), crc);
 
-#if __GNUC__
-# pragma GCC push_options
-# pragma GCC optimize("O0")
-#endif
-#if __clang__
-# pragma clang optimize off
-#endif
 	/* Double check for faults */
         if (crc != fw->fw_sig.crc32) {
             dbg_log("invalid fw header CRC32: %x, %x required!!! leaving...\n", crc, fw->fw_sig.crc32);
@@ -374,12 +363,6 @@ check_crc:
             dbg_flush();
             goto err;
         }
-#if __clang__
-# pragma clang optimize on
-#endif
-#if __GNUC__
-# pragma GCC pop_options
-#endif
 
     }
 
@@ -487,3 +470,10 @@ err:
     while(1);
     return 0;
 }
+#if __clang__
+# pragma clang optimize on
+#endif
+#if __GNUC__
+# pragma GCC pop_options
+#endif
+
