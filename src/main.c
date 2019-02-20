@@ -213,7 +213,7 @@ int main(void)
     }
 
 #ifdef CONFIG_FIRMWARE_DUALBANK
-#if __GNUG__
+#if __GNUC__
 # pragma GCC push_options
 # pragma GCC optimize("O0")
 #endif
@@ -282,7 +282,7 @@ int main(void)
 #if __clang__
 # pragma clang optimize on
 #endif
-#if __GNUG__
+#if __GNUC__
 # pragma GCC pop_options
 #endif
 
@@ -356,7 +356,7 @@ check_crc:
         crc = crc32((uint8_t*)&fw->bootable, sizeof(uint32_t), crc);
         crc = crc32((uint8_t*)&fw->fill2, SHR_SECTOR_SIZE - sizeof(uint32_t), crc);
 
-#if __GNUG__
+#if __GNUC__
 # pragma GCC push_options
 # pragma GCC optimize("O0")
 #endif
@@ -377,7 +377,7 @@ check_crc:
 #if __clang__
 # pragma clang optimize on
 #endif
-#if __GNUG__
+#if __GNUC__
 # pragma GCC pop_options
 #endif
 

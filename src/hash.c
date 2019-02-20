@@ -11,7 +11,7 @@ secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, 
     uint8_t digest[SHA256_DIGEST_SIZE];
     uint32_t tmp;
 
-#if __GNUG__
+#if __GNUC__
 # pragma GCC push_options
 # pragma GCC optimize("O0")
 #endif
@@ -28,7 +28,7 @@ secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, 
 #if __clang__
 # pragma clang optimize on
 #endif
-#if __GNUG__
+#if __GNUC__
 # pragma GCC pop_options
 #endif
 
@@ -52,7 +52,7 @@ secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, 
 
     sha256_final(&sha256_ctx, digest);
 
-#if __GNUG__
+#if __GNUC__
 # pragma GCC push_options
 # pragma GCC optimize("O0")
 #endif
@@ -72,7 +72,7 @@ secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, 
 #if __clang__
 # pragma clang optimize on
 #endif
-#if __GNUG__
+#if __GNUC__
 # pragma GCC pop_options
 #endif
 
