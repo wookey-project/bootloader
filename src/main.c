@@ -27,6 +27,7 @@
 #include "crc32.h"
 #include "exported/gpio.h"
 #include "hash.h"
+#include "flash.h"
 
 /**
  *  Ref DocID022708 Rev 4 p.141
@@ -321,11 +322,19 @@ check_crc:
 
     if (dfu_mode) {
         if (boot_flip) {
+            dbg_log("locking local bank write\n");
+            flash_unlock_opt();
+            flash_writelock_bank1();
+            flash_lock_opt();
             dbg_log("\x1b[37;41mbooting FLIP in DFU mode\x1b[37;40m\n");
             dbg_log("Jumping to DFU mode: %x\n", DFU1_START);
             next_level = (app_entry_t)DFU1_START;
         }
         if (boot_flop) {
+            dbg_log("locking local bank write\n");
+            flash_unlock_opt();
+            flash_writelock_bank2();
+            flash_lock_opt();
             dbg_log("\x1b[37;41mbooting FLOP in DFU mode\x1b[37;40m\n");
             dbg_log("Jumping to DFU mode: %x\n", DFU2_START);
             next_level = (app_entry_t)DFU2_START;
@@ -333,11 +342,21 @@ check_crc:
         dbg_flush();
     } else {
         if (boot_flip) {
+            dbg_log("locking flash write\n");
+            flash_unlock_opt();
+            flash_writelock_bank1();
+            flash_writelock_bank2();
+            flash_lock_opt();
             dbg_log("\x1b[37;41mbooting FLIP in nominal mode\x1b[37;40m\n");
             dbg_log("Jumping to FW mode: %x\n", FW1_START);
             next_level = (app_entry_t)FW1_START;
         }
         if (boot_flop) {
+            dbg_log("locking flash write\n");
+            flash_unlock_opt();
+            flash_writelock_bank1();
+            flash_writelock_bank2();
+            flash_lock_opt();
             dbg_log("\x1b[37;41mbooting FLOP in nominal mode\x1b[37;40m\n");
             dbg_log("Jumping to FW mode: %x\n", FW2_START);
             next_level = (app_entry_t)FW2_START;

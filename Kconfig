@@ -24,4 +24,11 @@ config LOADER_FW_HASH_CHECK
       This does not deactivate the CRC32 check of the firmware
       header structure
 
+config LOADER_FLASH_LOCK
+   bool "Lock flash banks at boot time"
+   default y
+   ---help---
+      Lock current flash bank write access in DFU mode (allowing other
+      bank update) and all banks write access in nominal mode.
+
 endmenu
