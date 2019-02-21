@@ -203,5 +203,9 @@ void flash_writelock_bank1(void);
 
 void flash_writelock_bank2(void);
 
+void flash_writeunlock_bank1(void);
+
+void flash_writeunlock_bank2(void);
+
 #endif /* _STM32F4XX_FLASH_H */
 

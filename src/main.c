@@ -325,6 +325,7 @@ check_crc:
             dbg_log("locking local bank write\n");
             flash_unlock_opt();
             flash_writelock_bank1();
+            flash_writeunlock_bank2();
             flash_lock_opt();
             dbg_log("\x1b[37;41mbooting FLIP in DFU mode\x1b[37;40m\n");
             dbg_log("Jumping to DFU mode: %x\n", DFU1_START);
@@ -333,6 +334,7 @@ check_crc:
         if (boot_flop) {
             dbg_log("locking local bank write\n");
             flash_unlock_opt();
+            flash_writeunlock_bank1();
             flash_writelock_bank2();
             flash_lock_opt();
             dbg_log("\x1b[37;41mbooting FLOP in DFU mode\x1b[37;40m\n");

@@ -1,4 +1,4 @@
-/** @file stm32f4xx_flash.c
+/** @file flash.c
  * \brief File includes functions to manipulate flash memory.
  *
  * See part. 3 (p73) in DocID018909 Rev 13
@@ -756,5 +756,23 @@ void flash_writelock_bank2(void)
 {
 #if CONFIG_FIRMWARE_DUALBANK && CONFIG_USR_DRV_FLASH_2M
     set_reg(r_CORTEX_M_FLASH_OPTCR1, 0x000, FLASH_OPTCR1_nWRP);
+#endif
+}
+
+void flash_writeunlock_bank1(void)
+{
+#if CONFIG_FIRMWARE_DUALBANK
+# if CONFIG_USR_DRV_FLASH_2M
+    set_reg(r_CORTEX_M_FLASH_OPTCR, 0xFFF, FLASH_OPTCR_nWRP);
+# else
+    log_printf("not yet implemented");
+# endif
+#endif
+}
+
+void flash_writeunlock_bank2(void)
+{
+#if CONFIG_FIRMWARE_DUALBANK && CONFIG_USR_DRV_FLASH_2M
+    set_reg(r_CORTEX_M_FLASH_OPTCR1, 0xFFF, FLASH_OPTCR1_nWRP);
 #endif
 }
