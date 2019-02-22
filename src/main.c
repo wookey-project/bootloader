@@ -27,8 +27,8 @@
 #include "crc32.h"
 #include "exported/gpio.h"
 #include "hash.h"
-#include "flash.h"
 #include "types.h"
+#include "flash.h"
 
 /**
  *  Ref DocID022708 Rev 4 p.141
