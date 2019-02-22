@@ -166,6 +166,12 @@ typedef enum {
     FLASH_BANK_1 = 1
 } t_flash_bank_id;
 
+typedef enum {
+    FLASH_RDP_DEACTIVATED = 0,
+    FLASH_RDP_MEMPROTECT  = 1,
+    FLASH_RDP_CHIPPROTECT = 2
+} t_flash_rdp_state;
+
 /******* Flash operations **********/
 void flash_unlock(void);
 
@@ -206,6 +212,8 @@ void flash_writelock_bank2(void);
 void flash_writeunlock_bank1(void);
 
 void flash_writeunlock_bank2(void);
+
+t_flash_rdp_state flash_check_rdpstate(void);
 
 #endif /* _STM32F4XX_FLASH_H */
 

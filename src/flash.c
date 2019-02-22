@@ -776,3 +776,8 @@ void flash_writeunlock_bank2(void)
     set_reg(r_CORTEX_M_FLASH_OPTCR1, 0xFFF, FLASH_OPTCR1_nWRP);
 #endif
 }
+
+t_flash_rdp_state flash_check_rdpstate(void)
+{
+    return get_reg(r_CORTEX_M_FLASH_OPTCR, FLASH_OPTCR_RDP);
+}

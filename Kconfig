@@ -35,8 +35,7 @@ config LOADER_FLASH_RDP_CHECK
    bool "Check that RDP protection is active at boot time"
    default n
    ---help---
-      Check if the RDP protection flag is active at boot if the current
-      firmware version is greater that 0 (initial firmware).
+      Check if the RDP protection flag is active at boot.
       If RDP protection is not active, then reset the board.
 
 endmenu

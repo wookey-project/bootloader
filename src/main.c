@@ -137,6 +137,22 @@ int main(void)
     dbg_log("==============================\n");
     dbg_flush();
 
+/* RDP check */
+#if CONFIG_LOADER_FLASH_RDP_CHECK
+    switch (flash_check_rdpstate()) {
+        case FLASH_RDP_DEACTIVATED:
+            NVIC_SystemReset();
+            goto err;
+        case FLASH_RDP_MEMPROTECT:
+            NVIC_SystemReset();
+            goto err;
+        case FLASH_RDP_CHIPPROTECT:
+            dbg_log("Flash is fully protected\n");
+            dbg_lush();
+            break;
+    }
+#endif
+
 #if CONFIG_LOADER_MOCKUP
 #if CONFIG_LOADER_MOCKUP_DFU
     dfu_mode = true;
