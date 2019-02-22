@@ -156,20 +156,10 @@
 
 
 
-/*
- * flash bank identifiers. In signle bank mode (see menuconfig) only the
- * flash bank 0 is accessible. In dual bank mode, both banks are accessible
- * and configurable.
- */
 typedef enum {
-    FLASH_BANK_0 = 0,
-    FLASH_BANK_1 = 1
-} t_flash_bank_id;
-
-typedef enum {
-    FLASH_RDP_DEACTIVATED = 0,
-    FLASH_RDP_MEMPROTECT  = 1,
-    FLASH_RDP_CHIPPROTECT = 2
+    FLASH_RDP_DEACTIVATED = 0x85606b8c,
+    FLASH_RDP_MEMPROTECT  = 0x75909b7c,
+    FLASH_RDP_CHIPPROTECT = 0x8a6f6483
 } t_flash_rdp_state;
 
 /******* Flash operations **********/

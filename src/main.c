@@ -150,6 +150,9 @@ int main(void)
             dbg_log("Flash is fully protected\n");
             dbg_lush();
             break;
+        default:
+            NVIC_SystemReset();
+            goto err;
     }
 #endif
 

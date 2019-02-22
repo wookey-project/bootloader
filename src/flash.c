@@ -779,5 +779,11 @@ void flash_writeunlock_bank2(void)
 
 t_flash_rdp_state flash_check_rdpstate(void)
 {
-    return get_reg(r_CORTEX_M_FLASH_OPTCR, FLASH_OPTCR_RDP);
+    uint32_t val = get_reg(r_CORTEX_M_FLASH_OPTCR, FLASH_OPTCR_RDP);
+    if (val == 0xAA) {
+        return FLASH_RDP_DEACTIVATED;
+    } else if (val == 0xCC) {
+        return FLASH_RDP_CHIPPROTECT;
+    }
+    return FLASH_RDP_MEMPROTECT;
 }
