@@ -23,9 +23,9 @@
 #ifndef _SHARED_H
 #define _SHARED_H
 
+#include "libsig.h"
 #include "types.h"
 #include "autoconf.h"
-#include "libsig.h"
 
 /* FIXME: migrate to unified layer from json asap */
 #define FLIP_BASE       0x08020000

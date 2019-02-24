@@ -1,6 +1,7 @@
 /** @file main.c
  *
  */
+#include "hash.h"
 #include "autoconf.h"
 #ifdef CONFIG_ARCH_CORTEX_M4
 #include "m4-systick.h"
@@ -26,7 +27,6 @@
 #include "leds.h"
 #include "crc32.h"
 #include "exported/gpio.h"
-#include "hash.h"
 #include "types.h"
 #include "flash.h"
 
@@ -92,7 +92,7 @@ void exti_button_handler(uint8_t irq __attribute__((unused)),
                          uint32_t sr __attribute__((unused)),
                          uint32_t dr __attribute__((unused)))
 {
-    dfu_mode = true;
+    dfu_mode = sectrue;
     /* Security info:
      * DFU mode request is registered. Just don't try to freeze
      * the boot sequence by generating EXTI interrupt burst
@@ -109,18 +109,23 @@ extern const shr_vars_t flop_shared_vars;
     volatile uint32_t count = 2;
 
 /* NOTE: O0 for fault attacks protections */
-#if __GNUC__
+#ifdef __GNUC__
+#ifdef __clang__
+# pragma clang optimize off
+#else
 # pragma GCC push_options
 # pragma GCC optimize("O0")
 #endif
-#if __clang__
-# pragma clang optimize off
 #endif
 /*
  * We use the local -fno-stack-protector flag for main because
  * the stack protection has not been initialized yet.
  */
+#ifdef __clang__
+/* FIXME */
+#else
 __attribute__ ((optimize("-fno-stack-protector")))
+#endif
 int main(void)
 {
     disable_irq();
@@ -470,10 +475,10 @@ err:
     while(1);
     return 0;
 }
-#if __clang__
+#ifdef __GNUC__
+#ifdef __clang__
 # pragma clang optimize on
-#endif
-#if __GNUC__
+#else
 # pragma GCC pop_options
 #endif
-
+#endif

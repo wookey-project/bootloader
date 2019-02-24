@@ -5,12 +5,14 @@
 
 # ifdef CONFIG_LOADER_FW_HASH_CHECK
 
-#if __GNUC__
+/* NOTE: O0 for fault attacks protections */
+#ifdef __GNUC__
+#ifdef __clang__
+# pragma clang optimize off
+#else
 # pragma GCC push_options
 # pragma GCC optimize("O0")
 #endif
-#if __clang__
-# pragma clang optimize off
 #endif
 secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, uint32_t partition_size)
 {
@@ -62,11 +64,12 @@ secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, 
 err:
     return secfalse;
 }
-#if __clang__
+#ifdef __GNUC__
+#ifdef __clang__
 # pragma clang optimize on
-#endif
-#if __GNUC__
+#else
 # pragma GCC pop_options
+#endif
 #endif
 
 # endif
