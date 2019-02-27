@@ -231,21 +231,22 @@ int main(void)
     const t_firmware_state *fw = 0;
     /* both FLIP and FLOP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE && flop_shared_vars.fw.bootable == FW_BOOTABLE) {
-        boot_flip = boot_flop = sectrue;
+        boot_flip = sectrue;
+        boot_flop = sectrue;
         dbg_log("Both firwares have FW_BOOTABLE\n");
         dbg_log("\x1b[33;43mflip version: %d\x1b[37;40m\n", flip_shared_vars.fw.fw_sig.version);
         dbg_log("\x1b[33;43mflop version: %d\x1b[37;40m\n", flop_shared_vars.fw.fw_sig.version);
         dbg_flush();
         if (flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version) {
             /* Sanity check agaist fault on rollback */
-	    if(!(flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version)){
+            if(!(flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version)){
                 goto err;
-	    }
+            }
             boot_flop = secfalse;
             fw = &flip_shared_vars.fw;
-	    if(!(flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version)){
+            if(!(flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version)){
                 goto err;
-	    }
+            }
         }
         if ((boot_flip == sectrue) && (boot_flop == sectrue) && (flop_shared_vars.fw.fw_sig.version > flip_shared_vars.fw.fw_sig.version)) {
             /* Sanity check agaist fault on rollback */
@@ -254,7 +255,7 @@ int main(void)
             }
             boot_flip = secfalse;
             fw = &flop_shared_vars.fw;
-            if(!((boot_flip == sectrue) && (boot_flop == sectrue) && (flop_shared_vars.fw.fw_sig.version > flip_shared_vars.fw.fw_sig.version))){
+            if(!(flop_shared_vars.fw.fw_sig.version > flip_shared_vars.fw.fw_sig.version)){
                 goto err;
             }
         }
