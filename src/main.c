@@ -24,7 +24,6 @@
 #include "boot_mode.h"
 #include "stack_check.h"
 #include "shr.h"
-#include "leds.h"
 #include "crc32.h"
 #include "exported/gpio.h"
 #include "types.h"
