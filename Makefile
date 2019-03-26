@@ -28,7 +28,7 @@ CFLAGS += -Isrc/ -Iinc/ -I$(PROJ_FILES)/kernel/src/arch -I$(PROJ_FILES)/kernel/s
 CFLAGS += -MMD -MP
 
 LDFLAGS += -Tloader.ld -L$(APP_BUILD_DIR) $(AFLAGS_GCC) -fno-builtin -nostdlib -nostartfiles -Wl,-Map=$(APP_BUILD_DIR)/$(APP_NAME).map
-LD_LIBS += $(APP_BUILD_DIR)/libbsp/libbsp.a $(LIBSIGN) -L$(APP_BUILD_DIR) -L$(APP_BUILD_DIR)/libbsp
+LD_LIBS += $(APP_BUILD_DIR)/libbsp/libbsp.a -lsign -L$(APP_BUILD_DIR) -L$(APP_BUILD_DIR)/libbsp
 
 BUILD_DIR ?= $(PROJ_FILE)build
 
