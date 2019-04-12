@@ -25,7 +25,7 @@
 #include "stack_check.h"
 #include "shr.h"
 #include "crc32.h"
-#include "exported/gpio.h"
+#include "C/exported/gpio.h"
 #include "types.h"
 #include "flash.h"
 
