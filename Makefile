@@ -21,10 +21,9 @@ VERSION = 1
 APP_BUILD_DIR = $(BUILD_DIR)/$(APP_NAME)
 
 CFLAGS += $(EXTRA_CFLAGS)
-CFLAGS += $(DEBUG_CFLAGS)
-CFLAGS += $(LIBSIGN_CFLAGS)
-CFLAGS += -ffreestanding
-CFLAGS += -Isrc/ -Iinc/ -I$(PROJ_FILES)/kernel/src -I$(PROJ_FILES)/kernel/src/arch -I$(PROJ_FILES)/kernel/src/C -I$(PROJ_FILES)/externals/libecc/src
+CFLAGS += $(KERN_CFLAGS)
+CFLAGS += $(LIBSIGN_CFLAGS) -I$(PROJ_FILES)/externals/libecc/src
+CFLAGS += -Isrc/ -Iinc/ -I$(PROJ_FILES)/kernel/src -I$(PROJ_FILES)/kernel/src/arch -I$(PROJ_FILES)/kernel/src/C
 CFLAGS += -MMD -MP
 
 LDFLAGS += -Tloader.ld -L$(APP_BUILD_DIR) $(AFLAGS_GCC) -fno-builtin -nostdlib -nostartfiles -Wl,-Map=$(APP_BUILD_DIR)/$(APP_NAME).map
