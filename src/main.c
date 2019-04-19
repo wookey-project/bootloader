@@ -207,7 +207,6 @@ int main(void)
     soc_gpio_set_config(&gpio);
     soc_exti_config(&gpio);
     soc_exti_enable(gpio.kref);
-#endif
 
     // wait 1s for button push...
 
@@ -227,11 +226,14 @@ int main(void)
     if (count == 0) {
         dbg_log("Booting...\n");
     }
+#else
+    dbg_log("Booting...\n");
+#endif
 
-#ifdef CONFIG_FIRMWARE_DUALBANK
     secbool boot_flip = secfalse;
-    secbool boot_flop = secfalse;
     const t_firmware_state *fw = 0;
+#ifdef CONFIG_FIRMWARE_DUALBANK
+    secbool boot_flop = secfalse;
     /* both FLIP and FLOP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE && flop_shared_vars.fw.bootable == FW_BOOTABLE) {
         boot_flip = sectrue;
@@ -300,7 +302,9 @@ int main(void)
         boot_flip = sectrue;
         dbg_log("Flip seems bootable\n");
         dbg_flush();
+#ifdef CONFIG_FIRMWARE_DUALBANK
         boot_flop = secfalse;
+#endif
         fw = &flip_shared_vars.fw;
         /* end of select sanitize... */
         if (!fw) {
@@ -323,7 +327,10 @@ int main(void)
     dbg_flush();
     goto err;
 
+
 check_crc:
+    dbg_log("entring security part\n");
+#ifdef CONFIG_WOOKEY
     {
         /* Sanity check on the current selected partition and the header in flash */
         if(boot_flip == sectrue){
@@ -333,6 +340,7 @@ check_crc:
                 goto err;
             }
         }
+#ifdef CONFIG_FIRMWARE_DUALBANK
         else if((boot_flip == secfalse) && (boot_flop == sectrue)){
             if(fw->fw_sig.type != PART_FLOP){
                 dbg_log(COLOR_REDBG "Error: FLOP selected, but partition type in flash header is not conforming!\n" COLOR_NORMAL);
@@ -340,6 +348,7 @@ check_crc:
                 goto err;
             }
         }
+#endif
         else{
            goto err;
         }
@@ -376,7 +385,7 @@ check_crc:
         }
 
     }
-
+#endif
     /* check firmware integrity if activated */
 
 # ifdef CONFIG_LOADER_FW_HASH_CHECK
@@ -386,10 +395,12 @@ check_crc:
         partition_addr = FLIP_BASE;
         partition_size = FLIP_SIZE;
     }
+#ifdef CONFIG_FIRMWARE_DUALBANK
     else if ((boot_flip == secfalse) && (boot_flop == sectrue)){
         partition_addr = FLOP_BASE;
         partition_size = FLOP_SIZE;
     }
+#endif
     else{
         goto err;
     }
@@ -415,6 +426,7 @@ check_crc:
             dbg_log("Jumping to DFU mode: %x\n", DFU1_START);
             next_level = (app_entry_t)DFU1_START;
         }
+#ifdef CONFIG_FIRMWARE_DUALBANK
         else if ((boot_flip == secfalse) && (boot_flop == sectrue)) {
             dbg_log("locking local bank write\n");
             flash_unlock_opt();
@@ -425,6 +437,7 @@ check_crc:
             dbg_log("Jumping to DFU mode: %x\n", DFU2_START);
             next_level = (app_entry_t)DFU2_START;
         }
+#endif
         else{
             goto err;
         }
@@ -440,6 +453,7 @@ check_crc:
             dbg_log("Jumping to FW mode: %x\n", FW1_START);
             next_level = (app_entry_t)FW1_START;
         }
+#ifdef CONFIG_FIRMWARE_DUALBANK
         else if ((boot_flip == secfalse) && (boot_flop == sectrue)) {
             dbg_log("Locking flash write\n");
             flash_unlock_opt();
@@ -450,6 +464,7 @@ check_crc:
             dbg_log("Jumping to FW mode: %x\n", FW2_START);
             next_level = (app_entry_t)FW2_START;
         }
+#endif
         else{
             goto err;
         }
