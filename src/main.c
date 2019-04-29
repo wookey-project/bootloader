@@ -165,7 +165,7 @@ int main(void)
             goto err;
         case FLASH_RDP_CHIPPROTECT:
             dbg_log("Flash is fully protected\n");
-            dbg_lush();
+            dbg_flush();
             break;
         default:
             NVIC_SystemReset();
