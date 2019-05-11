@@ -135,15 +135,15 @@
 /* return true if the the address is in the flash memory */
 #if CONFIG_USR_DRV_FLASH_1M
 # if CONFIG_USR_DRV_FLASH_DUAL_BANK
-#  define IS_IN_FLASH(addr)		(addr >= FLASH_SECTOR_0) && \
-					(addr <= FLASH_SECTOR_19_END)
+#  define IS_IN_FLASH(addr)		((addr) >= FLASH_SECTOR_0) && \
+					((addr) <= FLASH_SECTOR_19_END)
 # else
-#  define IS_IN_FLASH(addr)		(addr >= FLASH_SECTOR_0) && \
-					(addr <= FLASH_SECTOR_11_END)
+#  define IS_IN_FLASH(addr)		((addr) >= FLASH_SECTOR_0) && \
+					((addr) <= FLASH_SECTOR_11_END)
 # endif
 #elif CONFIG_USR_DRV_FLASH_2M
-#  define IS_IN_FLASH(addr)		(addr >= FLASH_SECTOR_0) && \
-					(addr <= FLASH_SECTOR_23_END)
+#  define IS_IN_FLASH(addr)		((addr) >= FLASH_SECTOR_0) && \
+					((addr) <= FLASH_SECTOR_23_END)
 #else
 # error "Unkown flash size!"
 #endif

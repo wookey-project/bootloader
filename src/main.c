@@ -58,7 +58,7 @@ void hexdump(const uint8_t *bin, uint32_t len)
 {
   for (uint32_t i = 0; i < len; i++) {
     dbg_log("%x ", bin[i]);
-    if (i % 16 == 0 && i != 0) {
+    if ((i % 16 == 0) && (i != 0)) {
       dbg_log("\n");
     }
     dbg_flush();
@@ -217,7 +217,7 @@ int main(void)
         start = soc_dwt_getcycles() / 168000;
         do {
             stop = soc_dwt_getcycles() / 168000;
-        } while (stop - start < 1000); // < 1s
+        } while ((stop - start) < 1000); // < 1s
         dbg_log(".");
         dbg_flush();
         count--;
@@ -360,17 +360,17 @@ check_crc:
 #endif
         uint32_t crc = 0;
         /* checking CRC32 header check */
-        crc = crc32((uint8_t*)fw, sizeof(t_firmware_signature) - sizeof(uint32_t) - SHA256_DIGEST_SIZE - EC_MAX_SIGLEN, 0xffffffff);
+        crc = crc32((const uint8_t*)fw, sizeof(t_firmware_signature) - sizeof(uint32_t) - SHA256_DIGEST_SIZE - EC_MAX_SIGLEN, 0xffffffff);
         crc = crc32((uint8_t*)&buf, sizeof(uint32_t), crc);
-        crc = crc32((uint8_t*)fw->fw_sig.hash, SHA256_DIGEST_SIZE, crc);
+        crc = crc32((const uint8_t*)fw->fw_sig.hash, SHA256_DIGEST_SIZE, crc);
         for (uint32_t i = 0; i <  EC_MAX_SIGLEN; ++i) {
             crc = crc32((uint8_t*)&buf, sizeof(uint8_t), crc);
         }
         /* check CRC of padding (fill field) */
-        crc = crc32((uint8_t*)fw->fill, SHR_SECTOR_SIZE - sizeof(t_firmware_signature), crc);
+        crc = crc32((const uint8_t*)fw->fill, SHR_SECTOR_SIZE - sizeof(t_firmware_signature), crc);
         /* check CRC of bootable flag  */
-        crc = crc32((uint8_t*)&fw->bootable, sizeof(uint32_t), crc);
-        crc = crc32((uint8_t*)&fw->fill2, SHR_SECTOR_SIZE - sizeof(uint32_t), crc);
+        crc = crc32((const uint8_t*)&fw->bootable, sizeof(uint32_t), crc);
+        crc = crc32((const uint8_t*)&fw->fill2, SHR_SECTOR_SIZE - sizeof(uint32_t), crc);
 
 	/* Double check for faults */
         if (crc != fw->fw_sig.crc32) {

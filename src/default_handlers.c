@@ -99,6 +99,8 @@ stack_frame_t *exti_handler(stack_frame_t * stack_frame)
                 }
             }
             break;
+        default:
+            break;
     }
     return stack_frame;
 }
@@ -108,8 +110,8 @@ stack_frame_t *exti_handler(stack_frame_t * stack_frame)
 
 stack_frame_t *HardFault_Handler(stack_frame_t * frame)
 {
-    uint32_t    cfsr = *((uint32_t *) r_CORTEX_M_SCB_CFSR);
-    uint32_t    hfsr = *((uint32_t *) r_CORTEX_M_SCB_HFSR);
+    uint32_t    cfsr = *((volatile uint32_t *) r_CORTEX_M_SCB_CFSR);
+    uint32_t    hfsr = *((volatile uint32_t *) r_CORTEX_M_SCB_HFSR);
     uint32_t   *p;
     int         i;
 #ifdef KERNEL
