@@ -9,6 +9,10 @@
 /*
 ** Generic handlers. This handlers can be overloaded later if needed.
 */
+#define interrupt_get_num(intr) { asm volatile ("mrs r1, ipsr\n\t" \
+                                                "mov %0, r1\n\t" \
+                                              : "=r" (intr) :: "r1" ); }
+
 
 
 stack_frame_t *HardFault_Handler(stack_frame_t * frame)

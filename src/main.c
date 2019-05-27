@@ -15,18 +15,18 @@
 #include "soc-init.h"
 #include "soc-usart.h"
 #include "soc-usart-regs.h"
-#include "soc-layout.h"
+//#include "soc-layout.h"
 #include "soc-gpio.h"
 #include "soc-nvic.h"
 #include "soc-rcc.h"
 #include "soc-interrupts.h"
 #include "boot_mode.h"
-#include "stack_check.h"
 #include "shr.h"
 #include "crc32.h"
-#include "C/exported/gpio.h"
+#include "gpio.h"
 #include "types.h"
 #include "flash.h"
+
 
 #define COLOR_NORMAL  "\033[0m"
 #define COLOR_REVERSE "\033[7m"
@@ -123,7 +123,6 @@ int main(void)
     system_init((uint32_t) LDR_BASE);
     core_systick_init();
     // button now managed at kernel boot to detect if DFU mode
-    //d_button_init();
     debug_console_init();
 
     enable_irq();
