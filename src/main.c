@@ -17,7 +17,6 @@
 #include "soc-usart-regs.h"
 #include "soc-layout.h"
 #include "soc-gpio.h"
-#include "soc-exti.h"
 #include "soc-nvic.h"
 #include "soc-rcc.h"
 #include "soc-interrupts.h"
@@ -89,21 +88,6 @@ void dump_fw_header(const t_firmware_state *fw)
     dbg_log("Bootable :  %x\n", fw->bootable);
     dbg_flush();
 }
-
-#ifdef CONFIG_FIRMWARE_DFU
-void exti_button_handler(uint8_t irq __attribute__((unused)),
-                         uint32_t sr __attribute__((unused)),
-                         uint32_t dr __attribute__((unused)))
-{
-    dfu_mode = sectrue;
-    /* Security info:
-     * DFU mode request is registered. Just don't try to freeze
-     * the boot sequence by generating EXTI interrupt burst
-     * The Exti-lock feature is an EwoK feature, not a loader feature
-     */
-    soc_exti_disable(gpio.kref);
-}
-#endif
 
 extern const shr_vars_t flip_shared_vars;
 #ifdef CONFIG_FIRMWARE_DUALBANK
@@ -184,7 +168,6 @@ int main(void)
     // button is on GPIO E4
 #ifdef CONFIG_FIRMWARE_DFU
     soc_dwt_init();
-    soc_exti_init();
     dbg_log("Registering button on GPIO E4\n");
     dbg_flush();
 
@@ -200,23 +183,24 @@ int main(void)
     gpio.afr = 0;
     gpio.bsr_r = 0;
     gpio.lck = 0;
-    gpio.exti_trigger = GPIO_EXTI_TRIGGER_RISE;
-    gpio.exti_lock = GPIO_EXTI_LOCKED;
-    gpio.exti_handler = (user_handler_t) exti_button_handler;
 
     soc_gpio_set_config(&gpio);
-    soc_exti_config(&gpio);
-    soc_exti_enable(gpio.kref);
 
     // wait 1s for button push...
 
     dbg_log("Waiting for DFU jump through button push (%d seconds)\n", count);
     uint32_t start, stop;
+    uint8_t button_pushed;
     do {
         // in millisecs
         start = soc_dwt_getcycles() / 168000;
         do {
             stop = soc_dwt_getcycles() / 168000;
+            button_pushed = soc_gpio_get(gpio.kref);
+            if (button_pushed != 0) {
+                dfu_mode = sectrue;
+                break;
+            }
         } while ((stop - start) < 1000); // < 1s
         dbg_log(".");
         dbg_flush();
