@@ -31,10 +31,29 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef DEFAULT_HANDLERS_H_
-#define DEFAULT_HANDLERS_H_
+#ifndef CORTEX_M4_SYSTICK_H
+#define CORTEX_M4_SYSTICK_H
 
-stack_frame_t *HardFault_Handler(stack_frame_t * frame);
-stack_frame_t *Default_SubHandler(stack_frame_t * stack_frame);
+#include "types.h"
+#include "soc-interrupts.h"
 
-#endif/*!DEFAULT_HANDLERS_H_*/
+/* FIXME */
+#define TICKS_PER_SECOND    1000
+
+/**
+ * systick_init - Initialize the systick module
+ */
+void core_systick_init(void);
+
+/**
+ * get_ticks - Get the number of ticks elapsed since the card boot
+ * Return: Number of ticks.
+ */
+unsigned long long core_systick_get_ticks(void);
+
+unsigned long long core_ms_to_ticks(unsigned long long ms);
+
+/* ticks counter function, to be called by systick IRQ handler */
+stack_frame_t *core_systick_handler(stack_frame_t * stack_frame);
+
+#endif /* CORTEX_M4_SYSTICK_H */

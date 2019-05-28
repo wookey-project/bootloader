@@ -31,10 +31,15 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef DEFAULT_HANDLERS_H_
-#define DEFAULT_HANDLERS_H_
+#ifndef TYPES_H_
+#define TYPES_H_
 
-stack_frame_t *HardFault_Handler(stack_frame_t * frame);
-stack_frame_t *Default_SubHandler(stack_frame_t * stack_frame);
+#include "autoconf.h"
 
-#endif/*!DEFAULT_HANDLERS_H_*/
+#ifdef CONFIG_ARCH_ARMV7M
+# include "arch/cores/armv7-m/types.h"
+#else
+# error "architecture not yet supported"
+#endif
+
+#endif/*!TYPES_H_*/

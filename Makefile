@@ -12,22 +12,17 @@ VERSION = 1
 -include $(PROJ_FILES)/m_config.mk
 -include $(PROJ_FILES)/m_generic.mk
 
-# libbsp includes
--include $(PROJ_FILES)/kernel/src/arch/socs/$(SOC)/Makefile.objs
--include $(PROJ_FILES)/kernel/src/arch/cores/$(ARCH)/Makefile.objs
--include $(PROJ_FILES)/kernel/src/arch/boards/Makefile.objs
-
 # use an app-specific build dir
 APP_BUILD_DIR = $(BUILD_DIR)/$(APP_NAME)
 
-CFLAGS += $(EXTRA_CFLAGS)
+#CFLAGS += $(EXTRA_CFLAGS)
 CFLAGS += $(KERN_CFLAGS)
 CFLAGS += $(LIBSIGN_CFLAGS) -I$(PROJ_FILES)/externals/libecc/src
-CFLAGS += -Isrc/ -Iinc/ -I$(PROJ_FILES)/kernel/src -I$(PROJ_FILES)/kernel/src/arch -I$(PROJ_FILES)/kernel/src/C
+CFLAGS += -Isrc/ -Iinc/ -Isrc/arch -Isrc/arch/cores/$(ARCH) -Isrc/arch/socs/$(SOC)
 CFLAGS += -MMD -MP
 
-LDFLAGS += -Tloader.ld -L$(APP_BUILD_DIR) $(AFLAGS_GCC) -fno-builtin -nostdlib -nostartfiles -Wl,-Map=$(APP_BUILD_DIR)/$(APP_NAME).map
-LD_LIBS += $(APP_BUILD_DIR)/libbsp/libbsp.a -lsign -L$(APP_BUILD_DIR) -L$(APP_BUILD_DIR)/libbsp
+LDFLAGS := -Tloader.ld $(AFLAGS) -fno-builtin -nostdlib -nostartfiles -Wl,-Map=$(APP_BUILD_DIR)/$(APP_NAME).map
+LD_LIBS += -lsign -L$(APP_BUILD_DIR) -L$(BUILD_DIR)/externals
 
 BUILD_DIR ?= $(PROJ_FILE)build
 
@@ -35,41 +30,32 @@ CSRC_DIR = src
 SRC := $(wildcard $(CSRC_DIR)/*.c)
 OBJ := $(patsubst %.c,$(APP_BUILD_DIR)/%.o,$(SRC))
 
-# startup file, for kernel and loader only
-SOC_DIR = $(PROJ_FILES)/kernel/src/arch/socs/$(SOC)
-SOC_SRC := startup_$(SOC).s
-SOC_OBJ := $(patsubst %.s,$(APP_BUILD_DIR)/%.o,$(SOC_SRC))
+SOC_DIR = src/arch/socs/$(SOC)
+SOC_SRC := $(wildcard $(SOC_DIR)/*.c)
+SOC_OBJ := $(patsubst %.c,$(APP_BUILD_DIR)/%.o,$(SOC_SRC))
 
-#Rust sources files
-RSSRC_DIR=rust/src
-RSRC= $(wildcard $(RSRCDIR)/*.rs)
-ROBJ = $(patsubst %.rs,$(APP_BUILD_DIR)/%.o,$(RSRC))
+ARCH_DIR = src/arch/cores/$(ARCH)
+ARCH_SRC := $(wildcard $(ARCH_DIR)/*.c)
+ARCH_OBJ := $(patsubst %.c,$(APP_BUILD_DIR)/%.o,$(ARCH_SRC))
 
-#ada sources files
-ASRC_DIR = ada/src
-ASRC= $(wildcard $(ASRC_DIR)/*.adb)
-AOBJ = $(patsubst %.adb,$(APP_BUILD_DIR)/%.o,$(ASRC))
+SOCASM_DIR := src/arch/socs/$(SOC)
+SOCASM_SRC := startup_$(SOC).s
+SOCASM_OBJ := $(patsubst %.s,$(APP_BUILD_DIR)/asm/%.o,$(SOCASM_SRC))
 
-#test sources files
-TESTSSRC_DIR = tests
-TESTSSRC = tests.c tests_cryp.c tests_dma.c tests_queue.c tests_sd.c tests_systick.c
-TESTSOBJ = $(patsubst %.c,$(APP_BUILD_DIR)/%.o,$(TESTSSRC))
-TESTSDEP = $(TESTSSOBJ:.o=.d)
-
-OUT_DIRS = $(dir $(DRVOBJ)) $(dir $(BOARD_OBJ)) $(dir $(SOC_OBJ)) $(dir $(CORE_OBJ)) $(dir $(AOBJ)) $(dir $(OBJ)) $(dir $(ROBJ))
+OUT_DIRS = $(dir $(SOCASM_OBJ)) $(dir $(SOC_OBJ)) $(dir $(ARCH_OBJ)) $(dir $(OBJ))
 
 LDSCRIPT_NAME = $(APP_BUILD_DIR)/$(APP_NAME).ld
 
 # file to (dist)clean
 # objects and compilation related
-TODEL_CLEAN += $(ROBJ) $(OBJ) $(SOC_OBJ) $(DRVOBJ) $(BOARD_OBJ) $(CORE_OBJ) $(DEP) $(TESTSDEP) $(SOC_DEP) $(DRVDEP) $(BOARD_DEP) $(CORE_DEP) $(LDSCRIPT_NAME)
+TODEL_CLEAN += $(OBJ) $(SOC_OBJ) $(SOCASM_OBJ) $(ARCH_OBJ) $(DEP) $(SOC_DEP) $(ARCH_DEP)
 # targets
 TODEL_DISTCLEAN += $(APP_BUILD_DIR)
 
 .PHONY: loader __clean
 
 __clean:
-	-rm -rf $(OBJ)
+	-rm -rf $(TODEL_CLEAN)
 
 __distclean:
 	-rm -rf $(LDSCRIPT_NAME) $(APP_BUILD_DIR)/$(ELF_NAME) $(APP_BUILD_DIR)/$(HEX_NAME) $(APP_BUILD_DIR)/$(BIN_NAME)
@@ -83,33 +69,37 @@ show:
 	@echo
 	@echo "C sources files:"
 	@echo "\t\tSRC\t=> " $(SRC)
+	@echo "\t\tSOC_SRC\t=> " $(SOC_SRC)
+	@echo "\t\tARCH_SRC\t=> " $(ARCH_SRC)
+	@echo
 	@echo "\t\tOBJ\t=> " $(OBJ)
+	@echo "\t\tSOC_OBJ\t=> " $(SOC_OBJ)
+	@echo "\t\tARCH_OBJ\t=> " $(ARCH_OBJ)
 	@echo
 	@echo "\t\tBUILD_DIR\t=> " $(BUILD_DIR)
 	@echo "\t\tAPP_BUILD_DIR\t=> " $(APP_BUILD_DIR)
-	@echo
-	@echo "Rust sources files:"
-	@echo "\t" $(RSRC)
-	@echo "\t\t=> " $(ROBJ)
 
 loader: $(APP_BUILD_DIR)/$(ELF_NAME) $(APP_BUILD_DIR)/$(HEX_NAME)
 
 #############################################################
 # build targets (driver, core, SoC, Board... and local)
 # App C sources files
-$(APP_BUILD_DIR)/%.o: %.c
+$(APP_BUILD_DIR)/src/%.o: src/%.c
+	$(call if_changed,cc_o_c)
+
+# only for ASM startup file
+$(APP_BUILD_DIR)/asm/%.o: $(SOCASM_DIR)/$(SOCASM_SRC)
+	$(call if_changed,cc_o_c)
+
+$(APP_BUILD_DIR)/arch/socs/$(SOC)/%.o: arch/socs/$(SOC)/%.c
+	$(call if_changed,cc_o_c)
+
+$(APP_BUILD_DIR)/arch/cores/$(ARCH)/%.o: arch/cores/$(ARCH)/%.c
 	$(call if_changed,cc_o_c)
 
 # Test sources files
 $(APP_BUILD_DIR)/tests/%.o: $(TESTSSRC_DIR)/%.c
 	$(call if_changed,cc_o_c)
-
-$(APP_BUILD_DIR)/%.o: $(SOC_DIR)/$(SOC_SRC)
-	$(call if_changed,cc_o_c)
-
-# RUST FILES
-$(ROBJ): $(RSRC)
-	$(call if_changed,rc_o_rs)
 
 # LDSCRIPT
 ifeq (y, $(CONFIG_FIRMWARE_MODE_MONO_BANK))
@@ -121,7 +111,7 @@ $(LDSCRIPT_NAME): loader.dualbank.ld.in
 endif
 
 # ELF
-$(APP_BUILD_DIR)/$(ELF_NAME): $(LDSCRIPT_NAME) $(ROBJ) $(OBJ) $(SOBJ) $(SOC_OBJ)
+$(APP_BUILD_DIR)/$(ELF_NAME): $(LDSCRIPT_NAME) $(OBJ) $(ARCH_OBJ) $(SOC_OBJ) $(SOCASM_OBJ)
 	$(call if_changed,link_o_target)
 
 # HEX

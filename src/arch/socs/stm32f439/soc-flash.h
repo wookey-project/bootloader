@@ -31,32 +31,21 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef FLASH_REGS_H_
-#define FLASH_REGS_H_
+#ifndef SOC_FLASH_H
+#define SOC_FLASH_H
 
-#include "autoconf.h"
+#include "soc-core.h"
 
-#define FLASH_FLIP_BASE 0x08000000
-#define FLASH_FLOP_BASE 0x01000000
+#define r_CORTEX_M_FLASH		REG_ADDR(AHB1PERIPH_BASE + (uint32_t)0x3C00)
 
-#define FLASH_CTRL      0x40023C00
-#define FLASH_CTRL_2    0x40023C00
-#define FLASH_SYSTEM    0x1FFF0000
-#define FLASH_OTP       0x1FFF7800
-#define FLASH_OPB_BK1   0x1FFFC000
-#define FLASH_OPB_BK2   0x1FFEC000
-
-
-#define r_CORTEX_M_FLASH		REG_ADDR(FLASH_CTRL)
-
-#define r_CORTEX_M_FLASH_ACR		(r_CORTEX_M_FLASH + (uint32_t)0x00)	/* FLASH access control register */
-#define r_CORTEX_M_FLASH_KEYR		(r_CORTEX_M_FLASH + (uint32_t)0x01)	/* FLASH key register 1*/
-#define r_CORTEX_M_FLASH_OPTKEYR	(r_CORTEX_M_FLASH + (uint32_t)0x02)	/* FLASH option key register */
-#define r_CORTEX_M_FLASH_SR		(r_CORTEX_M_FLASH + (uint32_t)0x03)	/* FLASH status register */
-#define r_CORTEX_M_FLASH_CR		(r_CORTEX_M_FLASH + (uint32_t)0x04)	/* FLASH control register */
-#define r_CORTEX_M_FLASH_OPTCR		(r_CORTEX_M_FLASH + (uint32_t)0x05) 	/* FLASH option control register */
-#if defined(CONFIG_STM32F439) || defined(CONFIG_STM32F429)			/* FLASH option control register 1 (only on f42xxx/43xxx) */
-	#define r_CORTEX_M_FLASH_OPTCR1		(r_CORTEX_M_FLASH + (uint32_t)0x06)
+#define r_CORTEX_M_FLASH_ACR		(r_CORTEX_M_FLASH + (uint32_t)0x00) /* FLASH access control register */
+#define r_CORTEX_M_FLASH_KEYR		(r_CORTEX_M_FLASH + (uint32_t)0x01) /* FLASH key register 1 */
+#define r_CORTEX_M_FLASH_OPTKEYR	(r_CORTEX_M_FLASH + (uint32_t)0x02) /* FLASH option key register */
+#define r_CORTEX_M_FLASH_SR		(r_CORTEX_M_FLASH + (uint32_t)0x03) /* FLASH status register */
+#define r_CORTEX_M_FLASH_CR		(r_CORTEX_M_FLASH + (uint32_t)0x04) /* FLASH control register */
+#define r_CORTEX_M_FLASH_OPTCR		(r_CORTEX_M_FLASH + (uint32_t)0x05) /* FLASH option control register */
+#ifdef STM32F429                /* FLASH option control register 1 (only on f42xxx/43xxx) */
+#define r_CORTEX_M_FLASH_OPTCR1		(r_CORTEX_M_FLASH + (uint32_t)0x06)
 #endif
 
 /*******************  FLASH_ACR register  *****************/
@@ -94,9 +83,9 @@
 #define FLASH_SR_PGPERR_Msk		((uint32_t)1 << FLASH_SR_PGPERR_Pos)
 #define FLASH_SR_PGSERR_Pos		7
 #define FLASH_SR_PGSERR_Msk		((uint32_t)1 << FLASH_SR_PGSERR_Pos)
-#if defined(CONFIG_STM32F439) || defined(CONFIG_STM32F429)			/* RDERR (only on f42xxx/43xxx) */
-	#define FLASH_SR_RDERR_Pos		8
-	#define FLASH_SR_RDERR_Msk		((uint32_t)1 << FLASH_SR_RDERR_Pos)
+#ifdef STM32F429                /* RDERR only on f42xxx/43xxx */
+#define FLASH_SR_RDERR_Pos		8
+#define FLASH_SR_RDERR_Msk		((uint32_t)1 << FLASH_SR_RDERR_Pos)
 #endif
 #define FLASH_SR_BSY_Pos   		16
 #define FLASH_SR_BSY_Msk  		((uint32_t)1 << FLASH_SR_BSY_Pos)
@@ -108,18 +97,13 @@
 #define FLASH_CR_SER_Msk		((uint32_t)1 << FLASH_CR_SER_Pos)
 #define FLASH_CR_MER_Pos		2
 #define FLASH_CR_MER_Msk		((uint32_t)1 << FLASH_CR_MER_Pos)
-
 #define FLASH_CR_SNB_Pos		3
-#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK) /*  Dual blank only on f42xxx/43xxx */
-#define FLASH_CR_SNB_Msk		((uint32_t)0x1F << FLASH_CR_SNB_Pos)
-#else
 #define FLASH_CR_SNB_Msk		((uint32_t)0xF << FLASH_CR_SNB_Pos)
-#endif
 #define FLASH_CR_PSIZE_Pos		8
 #define FLASH_CR_PSIZE_Msk		((uint32_t)3 << FLASH_CR_PSIZE_Pos)
-#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)			/* MER1 (only on f42xxx/43xxx) */
-	#define FLASH_CR_MER1_Pos		15
-	#define FLASH_CR_MER1_Msk		((uint32_t)1 << FLASH_CR_MER1_Pos)
+#ifdef STM32F429                /* MER1 only on f42xxx/43xxx */
+#define FLASH_CR_MER1_Pos		15
+#define FLASH_CR_MER1_Msk		((uint32_t)1 << FLASH_CR_MER1_Pos)
 #endif
 #define FLASH_CR_STRT_Pos		16
 #define FLASH_CR_STRT_Msk		((uint32_t)1 << FLASH_CR_STRT_Pos)
@@ -137,9 +121,9 @@
 #define FLASH_OPTCR_OPTSTRT_Msk		((uint32_t)1 << FLASH_OPTCR_OPTSTRT_Pos)
 #define FLASH_OPTCR_BOR_LEV_Pos		2
 #define FLASH_OPTCR_BOR_LEV_Msk		((uint32_t)3 << FLASH_OPTCR_BOR_LEV_Pos)
-#if defined(CONFIG_STM32F439) || defined(CONFIG_STM32F429)			/* BFB2 (only on f42xxx/43xxx) */
-	#define FLASH_OPTCR_BFB2_Pos		4
-	#define FLASH_OPTCR_BFB2_Msk		((uint32_t)1 << FLASH_OPTCR_BFB2_Pos)
+#ifdef STM32F429                /* BFB2 only on f42xxx/43xxx */
+#define FLASH_OPTCR_BFB2_Pos		4
+#define FLASH_OPTCR_BFB2_Msk		((uint32_t)1 << FLASH_OPTCR_BFB2_Pos)
 #endif
 #define FLASH_OPTCR_WDG_SW_Pos		5
 #define FLASH_OPTCR_WDG_SW_Msk		((uint32_t)1 << FLASH_OPTCR_WDG_SW_Pos)
@@ -151,37 +135,88 @@
 #define FLASH_OPTCR_RDP_Msk		((uint32_t)0xFF << FLASH_OPTCR_RDP_Pos)
 #define FLASH_OPTCR_nWRP_Pos		16
 #define FLASH_OPTCR_nWRP_Msk		((uint32_t)0x0FFF << FLASH_OPTCR_nWRP_Pos)
-#if defined(CONFIG_STM32F439) || defined(CONFIG_STM32F429)			/*  Only on f42xxx/43xxx */
-	#define FLASH_OPTCR_DB1M_Pos		30
-	#define FLASH_OPTCR_DB1M_Msk		((uint32_t)1 << FLASH_OPTCR_DB1M_Pos)
-	#define FLASH_OPTCR_SPRMOD_Pos		31
-	#define FLASH_OPTCR_SPRMOD_Msk		((uint32_t)1 << FLASH_OPTCR_SPRMOD_Pos)
+#ifdef STM32F429                /* STM32F42xxx/STM32F43xxx only */
+#define FLASH_OPTCR_DB1M_Pos		30
+#define FLASH_OPTCR_DB1M_Msk		((uint32_t)1 << FLASH_OPTCR_DB1M_Pos)
+#define FLASH_OPTCR_SPRMOD_Pos		31
+#define FLASH_OPTCR_SPRMOD_Msk		((uint32_t)1 << FLASH_OPTCR_SPRMOD_Pos)
 #endif
 
 /*******************  FLASH_OPTCR1 register  ***************/
-#if defined(CONFIG_STM32F439) || defined(CONFIG_STM32F429)			/*  Only on f42xxx/43xxx */
-	#define FLASH_OPTCR1_nWRP_Pos		16
-	#define FLASH_OPTCR1_nWRP_Msk		((uint32_t)0x0FFF << FLASH_OPTCR1_nWRP_Pos)
+#ifdef STM32F429    /**** Only on f42xxx/43xxx ****/
+#define FLASH_OPTCR1_nWRP_Pos		16
+#define FLASH_OPTCR1_nWRP_Msk		((uint32_t)0x0FFF << FLASH_OPTCR1_nWRP_Pos)
 #endif
 
+/****** Adress definition for flash memory sectors ******/
+/*** Single bank configuration ***/
+#define FLASH_SECTOR_0			((uint32_t) 0x08000000) /* 16 kB */
+#define FLASH_SECTOR_0_END		((uint32_t) 0x08003FFF)
+#define FLASH_SECTOR_1			((uint32_t) 0x08004000) /* 16 kB */
+#define FLASH_SECTOR_1_END		((uint32_t) 0x08007FFF)
+#define FLASH_SECTOR_2			((uint32_t) 0x08008000) /* 16 kB */
+#define FLASH_SECTOR_2_END		((uint32_t) 0x0800BFFF)
+#define FLASH_SECTOR_3			((uint32_t) 0x0800C000) /* 16 kB */
+#define FLASH_SECTOR_3_END		((uint32_t) 0x0800FFFF)
+#define FLASH_SECTOR_4			((uint32_t) 0x08010000) /* 64 kB */
+#define FLASH_SECTOR_4_END		((uint32_t) 0x0801FFFF)
+#define FLASH_SECTOR_5			((uint32_t) 0x08020000) /* 128 kB */
+#define FLASH_SECTOR_5_END		((uint32_t) 0x0803FFFF)
+#define FLASH_SECTOR_6			((uint32_t) 0x08040000) /* 128 kB */
+#define FLASH_SECTOR_6_END		((uint32_t) 0x0805FFFF)
+#define FLASH_SECTOR_7			((uint32_t) 0x08060000) /* 128 kB */
+#define FLASH_SECTOR_7_END		((uint32_t) 0x0807FFFF)
+#define FLASH_SECTOR_8			((uint32_t) 0x08080000) /* 128 kB */
+#define FLASH_SECTOR_8_END		((uint32_t) 0x0809FFFF)
+#define FLASH_SECTOR_9			((uint32_t) 0x080A0000) /* 128 kB */
+#define FLASH_SECTOR_9_END		((uint32_t) 0x080BFFFF)
+#define FLASH_SECTOR_10			((uint32_t) 0x080C0000) /* 128 kB */
+#define FLASH_SECTOR_10_END		((uint32_t) 0x080DFFFF)
+#define FLASH_SECTOR_11			((uint32_t) 0x080E0000) /* 128 kB */
+#define FLASH_SECTOR_11_END		((uint32_t) 0x080FFFFF)
+#define FLASH_SECTOR_SYSTEM_MEM		((uint32_t) 0x1FFF0000) /* 30 kB */
+#define FLASH_SECTOR_SYSTEM_MEM_END	((uint32_t) 0x1FFF77FF)
+#define FLASH_SECTOR_OPT_AREA		((uint32_t) 0x1FFF7800) /* 528 B */
+#define FLASH_SECTOR_OPT_AREA_END	((uint32_t) 0x1FFF7A0F)
+#define FLASH_OPTION_BYTES		((uint32_t) 0x1FFFC000) /* 16 B */
+#define FLASH_OPTION_BYTES_END		((uint32_t) 0x1FFFC00F)
+#ifdef STM32F429                /* ! Only in f42xxx/43xxx ! */
+#define FLASH_OPTION_BYTES_SGL		((uint32_t) 0x1FFEC000) /* 16 B */
+#define FLASH_OPTION_BYTES_SGL_END	((uint32_t) 0x1FFEC00F)
+#endif
 
-/* return true if the the address is in the flash memory */
-#if CONFIG_USR_DRV_FLASH_1M
-# if CONFIG_USR_DRV_FLASH_DUAL_BANK
-#  define IS_IN_FLASH(addr)		((addr) >= FLASH_SECTOR_0) && \
-					((addr) <= FLASH_SECTOR_19_END)
-# else
-#  define IS_IN_FLASH(addr)		((addr) >= FLASH_SECTOR_0) && \
+/*** 1MB Dual bank memory configuration (8 first sector & opt bytes unchanged) ***/
+#define FLASH_SECTOR_12			((uint32_t) 0x08080000) /* 16 kB */
+#define FLASH_SECTOR_12_END		((uint32_t) 0x08083FFF)
+#define FLASH_SECTOR_13			((uint32_t) 0x08084000) /* 16 kB */
+#define FLASH_SECTOR_13_END		((uint32_t) 0x08087FFF)
+#define FLASH_SECTOR_14			((uint32_t) 0x08088000) /* 16 kB */
+#define FLASH_SECTOR_14_END		((uint32_t) 0x0808BFFF)
+#define FLASH_SECTOR_15			((uint32_t) 0x0808C000) /* 16 kB */
+#define FLASH_SECTOR_15_END		((uint32_t) 0x0808FFFF)
+#define FLASH_SECTOR_16			((uint32_t) 0x08090000) /* 64 kB */
+#define FLASH_SECTOR_16_END		((uint32_t) 0x0809FFFF)
+#define FLASH_SECTOR_17			((uint32_t) 0x080A0000) /* 128 kB */
+#define FLASH_SECTOR_17_END		((uint32_t) 0x080BFFFF)
+#define FLASH_SECTOR_18			((uint32_t) 0x080A0000) /* 128 kB */
+#define FLASH_SECTOR_18_END		((uint32_t) 0x080BFFFF)
+#define FLASH_SECTOR_19			((uint32_t) 0x080C0000) /* 128 kB */
+#define FLASH_SECTOR_19_END		((uint32_t) 0x080DFFFF)
+#define FLASH_OPTION_BYTES_BK1		((uint32_t) 0x1FFFC000) /* 16 B */
+#define FLASH_OPTION_BYTES_BK1_END	((uint32_t) 0x1FFFC00F)
+#define FLASH_OPTION_BYTES_BK2		((uint32_t) 0x1FFEC000) /* 16 B */
+#define FLASH_OPTION_BYTES_BK2_END	((uint32_t) 0x1FFEC00F)
+
+#define IS_IN_FLASH(addr)		((addr) >= FLASH_SECTOR_0) && \
 					((addr) <= FLASH_SECTOR_11_END)
-# endif
-#elif CONFIG_USR_DRV_FLASH_2M
-#  define IS_IN_FLASH(addr)		((addr) >= FLASH_SECTOR_0) && \
-					((addr) <= FLASH_SECTOR_23_END)
-#else
-# error "Unkown flash size!"
-#endif
 
-#define FLASH_SECTOR_SIZE(sector)  (FLASH_SECTOR_##sector##_END-FLASH_SECTOR_##sector)
+#define IS_IN_FLASH_DUAL(addr)		((addr) >= FLASH_SECTOR_0) && \
+					((addr) <= FLASH_SECTOR_11_END) || \
+					((addr) >= FLASH_SECTOR_12) && \
+					((addr) <= FLASH_SECTOR_19_END)
+
+//#define START_SECTOR(SECTOR)          (uint32_t)FLASH_SECTOR_##SECTOR
+//#define END_SECTOR(SECTOR)            (uint32_t)FLASH_SECTOR_##SECTOR##_END
 
 /*******************  Bits definition for FLASH_ACR register  *****************/
 #define FLASH_ACR_LATENCY                    ((uint32_t)0x00000007)
@@ -209,9 +244,6 @@
 #define FLASH_SR_PGAERR                      ((uint32_t)0x00000020)
 #define FLASH_SR_PGPERR                      ((uint32_t)0x00000040)
 #define FLASH_SR_PGSERR                      ((uint32_t)0x00000080)
-#if defined(CONFIG_STM32F439) || defined(CONFIG_STM32F429)      /*  Dual blank only on f42xxx/43xxx */
-#define FLASH_SR_RDERR                       ((uint32_t)0x00000100)
-#endif
 #define FLASH_SR_BSY                         ((uint32_t)0x00010000)
 
 /*******************  Bits definition for FLASH_CR register  ******************/
@@ -256,7 +288,6 @@
 #define FLASH_OPTCR_nWRP_8                   ((uint32_t)0x01000000)
 #define FLASH_OPTCR_nWRP_9                   ((uint32_t)0x02000000)
 #define FLASH_OPTCR_nWRP_10                  ((uint32_t)0x04000000)
-#define FLASH_OPTCR_nWRP_11		             ((uint32_t)0x08000000)
+#define FLASH_OPTCR_nWRP_11		     ((uint32_t)0x08000000)
 
-
-#endif/*!FLASH_REGS_H_*/
+#endif /* !SOC_FLASH_H */

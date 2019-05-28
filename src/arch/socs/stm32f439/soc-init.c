@@ -31,10 +31,63 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef DEFAULT_HANDLERS_H_
-#define DEFAULT_HANDLERS_H_
+#include "autoconf.h"
+#include "m4-cpu.h"
+#include "soc-init.h"
+#include "soc-flash.h"
+#include "soc-pwr.h"
+#include "soc-scb.h"
+#include "soc-rcc.h"
+#include "debug.h"
 
-stack_frame_t *HardFault_Handler(stack_frame_t * frame);
-stack_frame_t *Default_SubHandler(stack_frame_t * stack_frame);
+/*
+ * \brief Configure the Vector Table location and offset address
+ *
+ * WARNING : No interrupts here => IRQs disabled
+ *				=> No LOGs here
+ */
+void set_vtor(uint32_t addr)
+{
 
-#endif/*!DEFAULT_HANDLERS_H_*/
+    __DMB();                    /* Data Memory Barrier */
+#ifdef CONFIG_STM32F4
+    write_reg_value(r_CORTEX_M_SCB_VTOR, addr);
+#endif
+    __DSB();                    /*
+                                 * Data Synchronization Barrier to ensure all
+                                 * subsequent instructions use the new configuration
+                                 */
+}
+
+/* void system_init(void)
+ * \brief  Setup the microcontroller system
+ *
+ *         Initialize the Embedded Flash Interface, the PLL and update the
+ *         SystemFrequency variable.
+ */
+void system_init(uint32_t addr)
+{
+#ifdef PROD_ENABLE_HSE
+    bool enable_hse = true;
+#else
+    bool enable_hse = false;
+#endif
+
+#ifdef PROD_ENABLE_PLL
+    bool enable_pll = true;
+#else
+    bool enable_hse = false;
+#endif
+
+#ifdef CONFIG_STM32F4
+    soc_rcc_reset();
+    /*
+     * Configure the System clock source, PLL Multiplier and Divider factors,
+     * AHB/APBx prescalers and Flash settings
+     */
+    soc_rcc_setsysclock(enable_hse, enable_pll);
+#endif
+
+    //set_vtor(FLASH_BASE|VECT_TAB_OFFSET);
+    set_vtor(addr);
+}

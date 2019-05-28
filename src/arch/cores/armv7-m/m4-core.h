@@ -31,10 +31,29 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef DEFAULT_HANDLERS_H_
-#define DEFAULT_HANDLERS_H_
+#ifndef M4_CORE_
+#define M4_CORE_
 
-stack_frame_t *HardFault_Handler(stack_frame_t * frame);
-stack_frame_t *Default_SubHandler(stack_frame_t * stack_frame);
+#define MAIN_CLOCK_FREQUENCY 168000000
+#define MAIN_CLOCK_FREQUENCY_MS 168000
+#define MAIN_CLOCK_FREQUENCY_US 168
 
-#endif/*!DEFAULT_HANDLERS_H_*/
+#define INITIAL_STACK 0x1000b000
+
+#define INT_STACK_BASE KERN_STACK_BASE - 8192   /* same for FIQ & IRQ by now */
+#define ABT_STACK_BASE INT_STACK_BASE - 4096
+#define SYS_STACK_BASE ABT_STACK_BASE - 4096
+#define UDF_STACK_BASE SYS_STACK_BASE - 4096
+
+#define MODE_CLEAR 0xffffffe0
+
+static inline void core_processor_init_modes(void)
+{
+    /*
+     * init msp for kernel, this is needed in order to make IT return to SVC mode
+     * in thread mode (LR=0xFFFFFFF9) working (loading the good msp value from the SPSR)
+     */
+    asm volatile ("msr msp, %0\n\t"::"r" (INITIAL_STACK):);
+}
+
+#endif                          /*!M4_CORE_ */

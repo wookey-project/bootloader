@@ -1,3 +1,36 @@
+/*
+ * Copyright 2019 The wookey project team <wookey@ssi.gouv.fr>
+ *   - Ryad     Benadjila
+ *   - Arnauld  Michelizza
+ *   - Mathieu  Renard
+ *   - Philippe Thierry
+ *   - Philippe Trebuchet
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of mosquitto nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
 /** @file main.c
  *
  */
@@ -15,19 +48,18 @@
 #include "soc-init.h"
 #include "soc-usart.h"
 #include "soc-usart-regs.h"
-#include "soc-layout.h"
+//#include "soc-layout.h"
 #include "soc-gpio.h"
-#include "soc-exti.h"
 #include "soc-nvic.h"
 #include "soc-rcc.h"
 #include "soc-interrupts.h"
 #include "boot_mode.h"
-#include "stack_check.h"
 #include "shr.h"
 #include "crc32.h"
-#include "C/exported/gpio.h"
+#include "gpio.h"
 #include "types.h"
 #include "flash.h"
+
 
 #define COLOR_NORMAL  "\033[0m"
 #define COLOR_REVERSE "\033[7m"
@@ -90,21 +122,6 @@ void dump_fw_header(const t_firmware_state *fw)
     dbg_flush();
 }
 
-#ifdef CONFIG_FIRMWARE_DFU
-void exti_button_handler(uint8_t irq __attribute__((unused)),
-                         uint32_t sr __attribute__((unused)),
-                         uint32_t dr __attribute__((unused)))
-{
-    dfu_mode = sectrue;
-    /* Security info:
-     * DFU mode request is registered. Just don't try to freeze
-     * the boot sequence by generating EXTI interrupt burst
-     * The Exti-lock feature is an EwoK feature, not a loader feature
-     */
-    soc_exti_disable(gpio.kref);
-}
-#endif
-
 extern const shr_vars_t flip_shared_vars;
 #ifdef CONFIG_FIRMWARE_DUALBANK
 extern const shr_vars_t flop_shared_vars;
@@ -139,7 +156,6 @@ int main(void)
     system_init((uint32_t) LDR_BASE);
     core_systick_init();
     // button now managed at kernel boot to detect if DFU mode
-    //d_button_init();
     debug_console_init();
 
     enable_irq();
@@ -184,7 +200,6 @@ int main(void)
     // button is on GPIO E4
 #ifdef CONFIG_FIRMWARE_DFU
     soc_dwt_init();
-    soc_exti_init();
     dbg_log("Registering button on GPIO E4\n");
     dbg_flush();
 
@@ -200,23 +215,24 @@ int main(void)
     gpio.afr = 0;
     gpio.bsr_r = 0;
     gpio.lck = 0;
-    gpio.exti_trigger = GPIO_EXTI_TRIGGER_RISE;
-    gpio.exti_lock = GPIO_EXTI_LOCKED;
-    gpio.exti_handler = (user_handler_t) exti_button_handler;
 
     soc_gpio_set_config(&gpio);
-    soc_exti_config(&gpio);
-    soc_exti_enable(gpio.kref);
 
     // wait 1s for button push...
 
     dbg_log("Waiting for DFU jump through button push (%d seconds)\n", count);
     uint32_t start, stop;
+    uint8_t button_pushed;
     do {
         // in millisecs
         start = soc_dwt_getcycles() / 168000;
         do {
             stop = soc_dwt_getcycles() / 168000;
+            button_pushed = soc_gpio_get(gpio.kref);
+            if (button_pushed != 0) {
+                dfu_mode = sectrue;
+                break;
+            }
         } while ((stop - start) < 1000); // < 1s
         dbg_log(".");
         dbg_flush();
