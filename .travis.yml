@@ -45,7 +45,7 @@ before_script:
 script:
     - repo init -u https://github.com/wookey-project/manifest.git -m soft/disco407_nightly.xml && repo sync
     - echo 'CROSS_COMPILE=arm-eabi-' > setenv.local.sh
-    - if [ "$TRAVIS_EVENT_TYPE" = "pull_request" ]; then cd loader && git fetch github refs/pull/${TRAVIS_PULL_REQUEST}/head && git checkout FETCH_HEAD; fi
+    - if [ "$TRAVIS_EVENT_TYPE" = "pull_request" ]; then cd loader && git fetch github refs/pull/${TRAVIS_PULL_REQUEST}/head && git checkout FETCH_HEAD; cd ..; fi
     - source setenv.sh
     - make boards/32f407disco/configs/disco_blinky_ada_defconfig
     - make
