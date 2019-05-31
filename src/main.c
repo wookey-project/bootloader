@@ -48,7 +48,6 @@
 #include "soc-init.h"
 #include "soc-usart.h"
 #include "soc-usart-regs.h"
-//#include "soc-layout.h"
 #include "soc-gpio.h"
 #include "soc-nvic.h"
 #include "soc-rcc.h"
@@ -59,7 +58,6 @@
 #include "gpio.h"
 #include "types.h"
 #include "flash.h"
-
 
 #define COLOR_NORMAL  "\033[0m"
 #define COLOR_REVERSE "\033[7m"
@@ -82,6 +80,16 @@ app_entry_t dfu2_main = (app_entry_t) (DFU2_START);
 
 #ifdef CONFIG_FIRMWARE_DFU
 dev_gpio_info_t gpio = { 0 };
+
+/* the DFU button GPIO configuration may vary depending on the board
+ * by now, both Wookeyv1 & Wookeyv2 hold the DFU button on GPIO PE4 */
+# ifdef CONFIG_WOOKEY
+#  define DFU_GPIO_PORT GPIO_PE
+#  define DFU_GPIO_PIN  4
+# else
+#  error "Unknown DFU button GPIO configuration! please set it first"
+# endif
+
 #endif
 
 volatile secbool dfu_mode = secfalse;
@@ -195,16 +203,13 @@ int main(void)
 #endif
 #endif
 
-    //leds_init();
-    //leds_on(PROD_LED_STATUS);
-    // button is on GPIO E4
 #ifdef CONFIG_FIRMWARE_DFU
     soc_dwt_init();
     dbg_log("Registering button on GPIO E4\n");
     dbg_flush();
 
-    gpio.kref.port = GPIO_PE;
-    gpio.kref.pin = 4;
+    gpio.kref.port = DFU_GPIO_PORT;
+    gpio.kref.pin = DFU_GPIO_PIN;
     gpio.mask = GPIO_MASK_SET_MODE | GPIO_MASK_SET_PUPD |
         GPIO_MASK_SET_TYPE | GPIO_MASK_SET_SPEED |
         GPIO_MASK_SET_EXTI;
