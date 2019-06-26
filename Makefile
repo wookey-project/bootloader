@@ -15,7 +15,6 @@ VERSION = 1
 # use an app-specific build dir
 APP_BUILD_DIR = $(BUILD_DIR)/$(APP_NAME)
 
-#CFLAGS += $(EXTRA_CFLAGS)
 CFLAGS += $(KERN_CFLAGS)
 CFLAGS += $(LIBSIGN_CFLAGS) -I$(PROJ_FILES)/externals/libecc/src
 CFLAGS += -Isrc/ -Iinc/ -Isrc/arch -Isrc/arch/cores/$(ARCH) -Isrc/arch/socs/$(SOC)
