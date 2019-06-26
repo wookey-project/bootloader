@@ -41,10 +41,6 @@
 
 #define BUF_MAX		512
 
-#ifndef CONFIG_KERNEL_NOSERIAL
-volatile int logging = CONFIG_KERNEL_CONSOLE_TXT;
-#endif
-
 cb_usart_getc_t console_getc = NULL;
 cb_usart_putc_t console_putc = NULL;
 
@@ -73,7 +69,7 @@ void init_ring_buffer(void)
     }
 }
 
-#ifndef CONFIG_KERNEL_NOSERIAL
+#ifdef CONFIG_KERNEL_SERIAL
 void cb_console_data_received(void)
 {
     char c;
@@ -84,7 +80,7 @@ void cb_console_data_received(void)
     c = console_getc();
 
 
-    if (logging && console_putc) {
+    if (console_putc) {
         if (c == '\r') {
           console_putc('\r');
           console_putc('\n');
@@ -104,7 +100,7 @@ void debug_console_init(void)
      * sys_ipc(LOG) syscall behave like writing in /dev/null.
      */
     init_ring_buffer();
-#ifndef CONFIG_KERNEL_NOSERIAL
+#ifdef CONFIG_KERNEL_SERIAL
     /* Configure the USART in UART mode */
     console_config.usart = CONFIG_KERNEL_USART;
     console_config.baudrate = 115200;
@@ -204,7 +200,7 @@ static inline void ring_buffer_write_string(char *str, uint32_t len)
 
 
 
-#ifndef CONFIG_KERNEL_NOSERIAL
+#ifdef CONFIG_KERNEL_SERIAL
 /* flush behavior with activated serial... */
 void dbg_flush(void)
 {
@@ -528,7 +524,7 @@ static inline uint8_t print_handle_format_string(const char *fmt, va_list * args
                     /* => end of format string */
                     goto end;
                 }
- 
+
                 /* none of the above. Unsupported format */
             default:
                 {
@@ -605,7 +601,8 @@ int dbg_log(const char *fmt, ...)
     return res;
 }
 
-/* WARNING: in NOSERIAL mode, panic doesn't printout any information */
+/* WARNING: if KERNEL_SERIAL is not enabled, panic doesn't printout any
+ * information */
 void panic(char *fmt, ...)
 {
     va_list args;
@@ -615,7 +612,7 @@ void panic(char *fmt, ...)
     print(fmt, args, &len);
     va_end(args);
     dbg_flush();
-#if CONFIG_KERNEL_PANIC_FREEZE 
+#if CONFIG_KERNEL_PANIC_FREEZE
     while (1)
         continue;
 #elif CONFIG_KERNEL_PANIC_REBOOT
