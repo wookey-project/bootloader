@@ -19,6 +19,7 @@ CFLAGS += $(KERN_CFLAGS)
 CFLAGS += $(LIBSIGN_CFLAGS) -I$(PROJ_FILES)/externals/libecc/src
 CFLAGS += -Isrc/ -Iinc/ -Isrc/arch -Isrc/arch/cores/$(ARCH) -Isrc/arch/socs/$(SOC)
 CFLAGS += -MMD -MP
+CFLAGS += -O0 # required by hardened programing
 
 LDFLAGS := -Tloader.ld $(AFLAGS) -fno-builtin -nostdlib -nostartfiles -Wl,-Map=$(APP_BUILD_DIR)/$(APP_NAME).map
 LD_LIBS += -lsign -L$(APP_BUILD_DIR) -L$(BUILD_DIR)/externals
