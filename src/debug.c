@@ -51,6 +51,8 @@ static struct {
     char buf[BUF_MAX];
 } ring_buffer;
 
+static bool debug_ready = false;
+
 void init_ring_buffer(void)
 {
     /* init flags */
@@ -115,6 +117,7 @@ void debug_console_init(void)
 
     /* Initialize the USART related to the console */
     soc_usart_init(&console_config);
+    debug_ready = true;
     dbg_log("[USART%d initialized for console output, baudrate=%d]\n",
             console_config.usart, console_config.baudrate);
     dbg_flush();
@@ -204,6 +207,9 @@ static inline void ring_buffer_write_string(char *str, uint32_t len)
 /* flush behavior with activated serial... */
 void dbg_flush(void)
 {
+    if (!debug_ready) {
+        return;
+    }
     if (console_putc == NULL) {
         panic("Error: console_putc not initialized");
     }
@@ -586,6 +592,9 @@ int dbg_log(const char *fmt, ...)
     va_list args;
     logsize_t  len;
 
+    if (!debug_ready) {
+        return 0;
+    }
     /*
      * if there is some asyncrhonous printf to pass to the kernel, do it
      * before execute the current printf command

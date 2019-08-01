@@ -58,6 +58,7 @@
 #include "gpio.h"
 #include "types.h"
 #include "flash.h"
+#include "automaton.h"
 
 #define COLOR_NORMAL  "\033[0m"
 #define COLOR_REVERSE "\033[7m"
@@ -70,7 +71,6 @@
  *  Bit[0] of the value in Rm must be 1, BUT the addr
  *  to branch to is created by changing bit[0] to 0
  */
-//app_entry_t ldr_main = (app_entry_t)(_ldr_base+1);
 app_entry_t fw1_main = (app_entry_t) (FW1_START);
 app_entry_t dfu1_main = (app_entry_t) (DFU1_START);
 #ifdef CONFIG_FIRMWARE_DUALBANK
@@ -78,8 +78,34 @@ app_entry_t fw2_main = (app_entry_t) (FW2_START);
 app_entry_t dfu2_main = (app_entry_t) (DFU2_START);
 #endif
 
-#ifdef CONFIG_FIRMWARE_DFU
-dev_gpio_info_t gpio = { 0 };
+/*
+ * definition and declaration of the loader context
+ */
+
+typedef struct loader_ctx {
+    uint8_t status;
+    volatile secbool dfu_mode;
+    secbool boot_flip;
+#ifdef CONFIG_FIRMWARE_DUALBANK
+    secbool boot_flop;
+#endif
+    volatile uint32_t dfu_waitsec;
+    const t_firmware_state *fw;
+    app_entry_t  next_stage;
+} loader_ctx_t;
+
+static loader_ctx_t ctx = {
+    .status = 0,
+    .dfu_mode = secfalse,
+    .boot_flip = secfalse,
+#ifdef CONFIG_FIRMWARE_DUALBANK
+    .boot_flop = false,
+#endif
+    .dfu_waitsec = 2,
+    .fw = 0,
+    .next_stage = 0
+};
+
 
 /* the DFU button GPIO configuration may vary depending on the board
  * by now, both Wookeyv1 & Wookeyv2 hold the DFU button on GPIO PE4 */
@@ -90,9 +116,10 @@ dev_gpio_info_t gpio = { 0 };
 #  error "Unknown DFU button GPIO configuration! please set it first"
 # endif
 
-#endif
-
-volatile secbool dfu_mode = secfalse;
+/**************************************************************************
+ * About generic utility functions, that may be used by the bootloader
+ * automaton
+ *************************************************************************/
 
 void hexdump(const uint8_t *bin, uint32_t len)
 {
@@ -134,76 +161,88 @@ extern const shr_vars_t flip_shared_vars;
 #ifdef CONFIG_FIRMWARE_DUALBANK
 extern const shr_vars_t flop_shared_vars;
 #endif
-    volatile uint32_t count = 2;
 
-/* NOTE: O0 for fault attacks protections */
-#ifdef __GNUC__
-#ifdef __clang__
-# pragma clang optimize off
-#else
-# pragma GCC push_options
-# pragma GCC optimize("O0")
-#endif
-#endif
-/*
- * We use the local -fno-stack-protector flag for main because
- * the stack protection has not been initialized yet.
- */
-#ifdef __clang__
-/* FIXME */
-#else
-__attribute__ ((optimize("-fno-stack-protector")))
-#endif
-int main(void)
+/**************************************************************************
+ * Successive transition functions, each handling one given transition
+ *************************************************************************/
+
+
+static loader_request_t loader_exec_req_init(loader_state_t nextstate)
 {
+
+    /* entering transition target state (here LOADER_INIT) */
+    loader_set_state(nextstate);
+
+    /* and execute transition */
     disable_irq();
-
-    /* init MSP for loader */
-//    asm volatile ("msr msp, %0\n\t" : : "r" (0x20020000) : "r2");
-
     system_init((uint32_t) LDR_BASE);
     core_systick_init();
     // button now managed at kernel boot to detect if DFU mode
     debug_console_init();
-
     enable_irq();
 
     dbg_log("======= Wookey Loader ========\n");
     dbg_log("Built date\t: %s at %s\n", __DATE__, __TIME__);
-#ifdef STM32F429
+#if defined(CONFIG_STM32F429)
     dbg_log("Board\t\t: STM32F429\n");
-#else
+#elif defined(CONFIG_STM32F439)
+    dbg_log("Board\t\t: STM32F439\n");
+#elif defined(CONFIG_STM32F407)
     dbg_log("Board\t\t: STM32F407\n");
+#else
+    dbg_log("Board\t\t: Unknown!!\n");
 #endif
     dbg_log("==============================\n");
     dbg_flush();
 
-/* RDP check */
+    /* There is no specific error handling in INIT state by now.
+     * We can directly request the next transition... */
+    return LOADER_REQ_RDPCHECK;
+}
+
+static loader_request_t loader_exec_req_rdpcheck(loader_state_t nextstate)
+{
+    /* entering RDPCHECK */
+    loader_set_state(nextstate);
+
+    /* default next req */
+    loader_request_t nextreq = LOADER_REQ_SECBREACH;
+
 #if CONFIG_LOADER_FLASH_RDP_CHECK
+    /* RDP check */
     switch (flash_check_rdpstate()) {
         case FLASH_RDP_DEACTIVATED:
-            NVIC_SystemReset();
             goto err;
         case FLASH_RDP_MEMPROTECT:
-            NVIC_SystemReset();
             goto err;
         case FLASH_RDP_CHIPPROTECT:
             dbg_log("Flash is fully protected\n");
             dbg_flush();
+            /* valid behavior */
+            nextreq = LOADER_REQ_DFUCHECK;
             break;
         default:
-            NVIC_SystemReset();
-            goto err;
+            break;
     }
+#else
+    nextreq = LOADER_REQ_DFUCHECK;
 #endif
+    return nextreq;
+}
+
+static loader_request_t loader_exec_req_dfucheck(loader_state_t nextstate)
+{
+    loader_set_state(nextstate);
 
 #if CONFIG_LOADER_MOCKUP
 #if CONFIG_LOADER_MOCKUP_DFU
-    dfu_mode = sectrue;
+    ctx.dfu_mode = sectrue;
 #endif
 #endif
 
 #ifdef CONFIG_FIRMWARE_DFU
+    dev_gpio_info_t gpio = { 0 };
+
     soc_dwt_init();
     dbg_log("Registering button on GPIO E4\n");
     dbg_flush();
@@ -225,7 +264,7 @@ int main(void)
 
     // wait 1s for button push...
 
-    dbg_log("Waiting for DFU jump through button push (%d seconds)\n", count);
+    dbg_log("Waiting for DFU jump through button push (%d seconds)\n", ctx.dfu_waitsec);
     uint32_t start, stop;
     uint8_t button_pushed;
     do {
@@ -235,30 +274,31 @@ int main(void)
             stop = soc_dwt_getcycles() / 168000;
             button_pushed = soc_gpio_get(gpio.kref);
             if (button_pushed != 0) {
-                dfu_mode = sectrue;
+                ctx.dfu_mode = sectrue;
                 break;
             }
         } while ((stop - start) < 1000); // < 1s
         dbg_log(".");
         dbg_flush();
-        count--;
-    } while (count > 0);
-
-    if (count == 0) {
-        dbg_log("Booting...\n");
-    }
+        ctx.dfu_waitsec--;
+    } while (ctx.dfu_waitsec > 0);
+    dbg_log("Booting...\n");
 #else
     dbg_log("Booting...\n");
 #endif
+    return LOADER_REQ_SELECTBANK;
+}
 
-    secbool boot_flip = secfalse;
-    const t_firmware_state *fw = 0;
+static loader_request_t loader_exec_req_selectbank(loader_state_t nextstate)
+{
+    loader_set_state(nextstate);
+
+
 #ifdef CONFIG_FIRMWARE_DUALBANK
-    secbool boot_flop = secfalse;
     /* both FLIP and FLOP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE && flop_shared_vars.fw.bootable == FW_BOOTABLE) {
-        boot_flip = sectrue;
-        boot_flop = sectrue;
+        ctx.boot_flip = sectrue;
+        ctx.boot_flop = sectrue;
         dbg_log("Both firwares have FW_BOOTABLE\n");
         dbg_log(COLOR_REVERSE "Flip version: %d\n" COLOR_NORMAL,
             flip_shared_vars.fw.fw_sig.version);
@@ -270,25 +310,25 @@ int main(void)
             if(!(flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version)){
                 goto err;
             }
-            boot_flop = secfalse;
-            fw = &flip_shared_vars.fw;
+            ctx.boot_flop = secfalse;
+            ctx.fw = &flip_shared_vars.fw;
             if(!(flip_shared_vars.fw.fw_sig.version > flop_shared_vars.fw.fw_sig.version)){
                 goto err;
             }
         }
-        if ((boot_flip == sectrue) && (boot_flop == sectrue) && (flop_shared_vars.fw.fw_sig.version > flip_shared_vars.fw.fw_sig.version)) {
+        if ((ctx.boot_flip == sectrue) && (ctx.boot_flop == sectrue) && (flop_shared_vars.fw.fw_sig.version > flip_shared_vars.fw.fw_sig.version)) {
             /* Sanity check agaist fault on rollback */
-            if(!((boot_flip == sectrue) && (boot_flop == sectrue) && (flop_shared_vars.fw.fw_sig.version > flip_shared_vars.fw.fw_sig.version))){
+            if(!((ctx.boot_flip == sectrue) && (ctx.boot_flop == sectrue) && (flop_shared_vars.fw.fw_sig.version > flip_shared_vars.fw.fw_sig.version))){
                 goto err;
             }
-            boot_flip = secfalse;
-            fw = &flop_shared_vars.fw;
+            ctx.boot_flip = secfalse;
+            ctx.fw = &flop_shared_vars.fw;
             if(!(flop_shared_vars.fw.fw_sig.version > flip_shared_vars.fw.fw_sig.version)){
                 goto err;
             }
         }
         /* end of select sanitize... */
-        if (!fw) {
+        if (!ctx.fw) {
             dbg_log(COLOR_REDBG "Unable to choose! leaving!\n" COLOR_NORMAL);
             dbg_flush();
             goto err;
@@ -300,14 +340,14 @@ int main(void)
         if(!(flop_shared_vars.fw.bootable == FW_BOOTABLE)){
             goto err;
         }
-        boot_flop = sectrue;
+        ctx.boot_flop = sectrue;
         dbg_log("Flop seems bootable\n");
         dbg_log(COLOR_REVERSE "Flop version: %d\n" COLOR_NORMAL, flop_shared_vars.fw.fw_sig.version);
         dbg_flush();
-        boot_flip = secfalse;
-        fw = &flop_shared_vars.fw;
+        ctx.boot_flip = secfalse;
+        ctx.fw = &flop_shared_vars.fw;
         /* end of select sanitize... */
-        if (!fw) {
+        if (!ctx.fw) {
             dbg_log(COLOR_REDBG "Unable to choose! leaving!\n" COLOR_NORMAL);
             dbg_flush();
             goto err;
@@ -315,20 +355,19 @@ int main(void)
         goto check_crc;
     }
 
-
 #endif
     /* In one bank configuration, only FLIP can be started */
     if (flip_shared_vars.fw.bootable == FW_BOOTABLE) {
         dbg_log(COLOR_REVERSE "Flip version: %d\n" COLOR_NORMAL, flip_shared_vars.fw.fw_sig.version);
-        boot_flip = sectrue;
+        ctx.boot_flip = sectrue;
         dbg_log("Flip seems bootable\n");
         dbg_flush();
 #ifdef CONFIG_FIRMWARE_DUALBANK
-        boot_flop = secfalse;
+        ctx.boot_flop = secfalse;
 #endif
-        fw = &flip_shared_vars.fw;
+        ctx.fw = &flip_shared_vars.fw;
         /* end of select sanitize... */
-        if (!fw) {
+        if (!ctx.fw) {
             dbg_log(COLOR_REDBG "Unable to choose! leaving!\n" COLOR_NORMAL);
             dbg_flush();
             goto err;
@@ -348,22 +387,29 @@ int main(void)
     dbg_flush();
     goto err;
 
-
 check_crc:
-    dbg_log("entring security part\n");
+    return LOADER_REQ_CRCCHECK;
+err:
+    return LOADER_REQ_ERROR;
+}
+
+static loader_request_t loader_exec_req_crccheck(loader_state_t nextstate)
+{
+    loader_set_state(nextstate);
+
 #ifdef CONFIG_WOOKEY
     {
         /* Sanity check on the current selected partition and the header in flash */
-        if(boot_flip == sectrue){
-            if(fw->fw_sig.type != PART_FLIP){
+        if (ctx.boot_flip == sectrue){
+            if((ctx.fw)->fw_sig.type != PART_FLIP){
                 dbg_log(COLOR_REDBG "Error: FLIP selected, but partition type in flash header is not conforming!\n" COLOR_NORMAL);
                 dbg_flush();
                 goto err;
             }
         }
 #ifdef CONFIG_FIRMWARE_DUALBANK
-        else if((boot_flip == secfalse) && (boot_flop == sectrue)){
-            if(fw->fw_sig.type != PART_FLOP){
+        else if((ctx.boot_flip == secfalse) && (ctx.boot_flop == sectrue)){
+            if((ctx.fw)->fw_sig.type != PART_FLOP){
                 dbg_log(COLOR_REDBG "Error: FLOP selected, but partition type in flash header is not conforming!\n" COLOR_NORMAL);
                 dbg_flush();
                 goto err;
@@ -374,6 +420,7 @@ check_crc:
            goto err;
         }
     }
+    /* sanity check okay, calculating CRC32 */
     {
         uint32_t buf = 0xffffffff;
 #if LOADER_DEBUG
@@ -381,51 +428,58 @@ check_crc:
 #endif
         uint32_t crc = 0;
         /* checking CRC32 header check */
-        crc = crc32((const uint8_t*)fw, sizeof(t_firmware_signature) - sizeof(uint32_t) - SHA256_DIGEST_SIZE - EC_MAX_SIGLEN, 0xffffffff);
+        crc = crc32((const uint8_t*)ctx.fw, sizeof(t_firmware_signature) - sizeof(uint32_t) - SHA256_DIGEST_SIZE - EC_MAX_SIGLEN, 0xffffffff);
         crc = crc32((uint8_t*)&buf, sizeof(uint32_t), crc);
-        crc = crc32((const uint8_t*)fw->fw_sig.hash, SHA256_DIGEST_SIZE, crc);
+        crc = crc32((const uint8_t*)((ctx.fw)->fw_sig.hash), SHA256_DIGEST_SIZE, crc);
         for (uint32_t i = 0; i <  EC_MAX_SIGLEN; ++i) {
             crc = crc32((uint8_t*)&buf, sizeof(uint8_t), crc);
         }
         /* check CRC of padding (fill field) */
-        crc = crc32((const uint8_t*)fw->fill, SHR_SECTOR_SIZE - sizeof(t_firmware_signature), crc);
+        crc = crc32((const uint8_t*)((ctx.fw)->fill), SHR_SECTOR_SIZE - sizeof(t_firmware_signature), crc);
         /* check CRC of bootable flag  */
-        crc = crc32((const uint8_t*)&fw->bootable, sizeof(uint32_t), crc);
-        crc = crc32((const uint8_t*)&fw->fill2, SHR_SECTOR_SIZE - sizeof(uint32_t), crc);
+        crc = crc32((const uint8_t*)&((ctx.fw)->bootable), sizeof(uint32_t), crc);
+        crc = crc32((const uint8_t*)&((ctx.fw)->fill2), SHR_SECTOR_SIZE - sizeof(uint32_t), crc);
 
 	/* Double check for faults */
-        if (crc != fw->fw_sig.crc32) {
-            dbg_log(COLOR_REDBG "Invalid fw header CRC32: %x, %x required!!! leaving...\n" COLOR_NORMAL, crc, fw->fw_sig.crc32);
+        if (crc != (ctx.fw)->fw_sig.crc32) {
+            dbg_log(COLOR_REDBG "Invalid fw header CRC32: %x, %x required!!! leaving...\n" COLOR_NORMAL, crc, (ctx.fw)->fw_sig.crc32);
             dbg_flush();
             goto err;
         }
-        if (crc != fw->fw_sig.crc32) {
-            dbg_log(COLOR_REDBG "Invalid fw header CRC32: %x, %x required!!! leaving...\n" COLOR_NORMAL, crc, fw->fw_sig.crc32);
+        if (crc != (ctx.fw)->fw_sig.crc32) {
+            dbg_log(COLOR_REDBG "Invalid fw header CRC32: %x, %x required!!! leaving...\n" COLOR_NORMAL, crc, (ctx.fw)->fw_sig.crc32);
             dbg_flush();
             goto err;
         }
-
     }
 #endif
-    /* check firmware integrity if activated */
+    return LOADER_REQ_INTEGRITYCHECK;
+err:
+    return LOADER_REQ_SECBREACH;
 
-# ifdef CONFIG_LOADER_FW_HASH_CHECK
+}
+
+static loader_request_t loader_exec_req_integritycheck(loader_state_t nextstate)
+{
+    loader_set_state(nextstate);
+
+#ifdef CONFIG_LOADER_FW_HASH_CHECK
     uint32_t partition_addr;
     uint32_t partition_size;
-    if (boot_flip == sectrue){
+    if (ctx.boot_flip == sectrue){
         partition_addr = FLIP_BASE;
         partition_size = FLIP_SIZE;
     }
-#ifdef CONFIG_FIRMWARE_DUALBANK
-    else if ((boot_flip == secfalse) && (boot_flop == sectrue)){
+# ifdef CONFIG_FIRMWARE_DUALBANK
+    else if ((ctx.boot_flip == secfalse) && (ctx.boot_flop == sectrue)){
         partition_addr = FLOP_BASE;
         partition_size = FLOP_SIZE;
     }
-#endif
+# endif
     else{
         goto err;
     }
-    if (check_fw_hash(fw, partition_addr, partition_size) != sectrue)
+    if (check_fw_hash(ctx.fw, partition_addr, partition_size) != sectrue)
     {
         dbg_log(COLOR_REDBG "Error while checking firmware integrity! Leaving \n" COLOR_NORMAL);
         dbg_flush();
@@ -433,11 +487,18 @@ check_crc:
     }
 
 # endif
+    return LOADER_REQ_FLASHLOCK;
+err:
+    return LOADER_REQ_SECBREACH;
+}
 
-    app_entry_t  next_level = 0;
+static loader_request_t loader_exec_req_flashlock(loader_state_t nextstate)
+{
 
-    if (dfu_mode == sectrue) {
-        if (boot_flip == sectrue) {
+    loader_set_state(nextstate);
+
+    if (ctx.dfu_mode == sectrue) {
+        if (ctx.boot_flip == sectrue) {
             dbg_log("Locking local bank write\n");
             flash_unlock_opt();
             flash_writelock_bank1();
@@ -445,10 +506,10 @@ check_crc:
             flash_lock_opt();
             dbg_log(COLOR_REVERSE "Booting FLIP in DFU mode\n" COLOR_NORMAL);
             dbg_log("Jumping to DFU mode: %x\n", DFU1_START);
-            next_level = (app_entry_t)DFU1_START;
+            ctx.next_stage = (app_entry_t)DFU1_START;
         }
 #ifdef CONFIG_FIRMWARE_DUALBANK
-        else if ((boot_flip == secfalse) && (boot_flop == sectrue)) {
+        else if ((ctx.boot_flip == secfalse) && (ctx.boot_flop == sectrue)) {
             dbg_log("locking local bank write\n");
             flash_unlock_opt();
             flash_writeunlock_bank1();
@@ -456,15 +517,15 @@ check_crc:
             flash_lock_opt();
             dbg_log(COLOR_REVERSE "Booting FLOP in DFU mode\n" COLOR_NORMAL);
             dbg_log("Jumping to DFU mode: %x\n", DFU2_START);
-            next_level = (app_entry_t)DFU2_START;
+            ctx.next_stage = (app_entry_t)DFU2_START;
         }
 #endif
         else{
             goto err;
         }
         dbg_flush();
-    } else if (dfu_mode == secfalse) {
-        if (boot_flip == sectrue) {
+    } else if (ctx.dfu_mode == secfalse) {
+        if (ctx.boot_flip == sectrue) {
             dbg_log("Locking flash write\n");
             flash_unlock_opt();
             flash_writelock_bank1();
@@ -472,10 +533,10 @@ check_crc:
             flash_lock_opt();
             dbg_log(COLOR_REVERSE "Booting FLIP in nominal mode\n" COLOR_NORMAL);
             dbg_log("Jumping to FW mode: %x\n", FW1_START);
-            next_level = (app_entry_t)FW1_START;
+            ctx.next_stage = (app_entry_t)FW1_START;
         }
 #ifdef CONFIG_FIRMWARE_DUALBANK
-        else if ((boot_flip == secfalse) && (boot_flop == sectrue)) {
+        else if ((ctx.boot_flip == secfalse) && (ctx.boot_flop == sectrue)) {
             dbg_log("Locking flash write\n");
             flash_unlock_opt();
             flash_writelock_bank1();
@@ -483,7 +544,7 @@ check_crc:
             flash_lock_opt();
             dbg_log(COLOR_REVERSE "Booting FLOP in nominal mode\n" COLOR_NORMAL);
             dbg_log("Jumping to FW mode: %x\n", FW2_START);
-            next_level = (app_entry_t)FW2_START;
+            ctx.next_stage = (app_entry_t)FW2_START;
         }
 #endif
         else{
@@ -494,33 +555,149 @@ check_crc:
     else{
         goto err;
     }
+
+    return LOADER_REQ_BOOT;
+err:
+    return LOADER_REQ_ERROR;
+}
+
+static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
+{
+    loader_set_state(nextstate);
+
     dbg_log("Geronimo !\n");
     dbg_flush();
     disable_irq();
 
     /* Sanity check */
-    if(  (next_level != (app_entry_t)DFU1_START) && (next_level != (app_entry_t)DFU2_START)
-      && (next_level != (app_entry_t)FW1_START) && (next_level != (app_entry_t)FW2_START)){
+    if(  (ctx.next_stage != (app_entry_t)DFU1_START) && (ctx.next_stage != (app_entry_t)DFU2_START)
+      && (ctx.next_stage != (app_entry_t)FW1_START) && (ctx.next_stage != (app_entry_t)FW2_START)){
         goto err;
     }
 
-    if (next_level) {
-        next_level();
+    if (ctx.next_stage) {
+        ctx.next_stage();
     }
+    /* this part of the code should never be reached */
+    return LOADER_REQ_SECBREACH;
+
+err:
+    return LOADER_REQ_ERROR;
+}
+
+static loader_request_t loader_exec_error(loader_state_t state)
+{
+    dbg_log("ERROR! entering error from state %x!\n", state);
+    dbg_flush();
+    NVIC_SystemReset();
+    while (1); /* waiting for reset */
+    return LOADER_REQ_ERROR;
+}
+
+static loader_request_t loader_exec_secbreach(loader_state_t state)
+{
+    dbg_log("ERROR! entering Security breach from state %x!\n", state);
+    dbg_flush();
+    /*In case of security breach, we may react differently before reseting */
+    /* let's lock both flash bank*/
+    flash_unlock_opt();
+    flash_writelock_bank1();
+    flash_writelock_bank2();
+    /* flash_mass_erase() <- Yes we can! :-) */
+    flash_lock_opt();
+
+    NVIC_SystemReset();
+    while (1);
+    return LOADER_REQ_ERROR;
+}
+
+
+
+/*
+ * transition switch head function.
+ */
+static loader_request_t loader_exec_automaton_transition(const loader_request_t req)
+{
+    loader_state_t state = loader_get_state();
+    loader_request_t nextreq = LOADER_REQ_ERROR;
+    if (! loader_is_valid_transition(state, req)) {
+        loader_set_state(LOADER_ERROR);
+        goto end_transition;
+    }
+    loader_state_t nextstate = loader_next_state(state, req);
+    /* nextstate must always be valid, considering the automaton defined
+     * in automaton.c */
+
+    switch(req) {
+        case LOADER_REQ_INIT:
+            nextreq = loader_exec_req_init(nextstate);
+            break;
+        case LOADER_REQ_RDPCHECK:
+            nextreq = loader_exec_req_rdpcheck(nextstate);
+            break;
+        case LOADER_REQ_DFUCHECK:
+            nextreq = loader_exec_req_dfucheck(nextstate);
+            break;
+        case LOADER_REQ_SELECTBANK:
+            nextreq = loader_exec_req_selectbank(nextstate);
+            break;
+        case LOADER_REQ_CRCCHECK:
+            nextreq = loader_exec_req_crccheck(nextstate);
+            break;
+        case LOADER_REQ_INTEGRITYCHECK:
+            nextreq = loader_exec_req_integritycheck(nextstate);
+            break;
+        case LOADER_REQ_FLASHLOCK:
+            nextreq = loader_exec_req_flashlock(nextstate);
+            break;
+        case LOADER_REQ_BOOT:
+            nextreq = loader_exec_req_boot(nextstate);
+            break;
+        case LOADER_REQ_ERROR:
+            nextreq = loader_exec_error(state);
+            break;
+        case LOADER_REQ_SECBREACH:
+            nextreq = loader_exec_secbreach(state);
+            break;
+        default:
+            nextreq = LOADER_REQ_ERROR;
+    }
+end_transition:
+    return nextreq;
+
+/* execute each requested transition. The automaton must finish in one of
+ *    - LOADER_BOOTFW,
+ *    - LOADER_ERROR,
+ *    - LOADER_SECBREACH
+ * states, from which it never goes out.
+ */
+static void loader_exec_automaton(loader_request_t req)
+{
+    while (true) {
+        req = loader_exec_automaton_transition(req);
+    }
+}
+
+
+/*
+ * We use the local -fno-stack-protector flag for main because
+ * the stack protection has not been initialized yet.
+ */
+#ifdef __clang__
+/* FIXME */
+#else
+__attribute__ ((optimize("-fno-stack-protector")))
+#endif
+int main(void)
+{
+    loader_set_state(LOADER_START);
+    loader_request_t initial_req = LOADER_REQ_INIT;
+
+    loader_exec_automaton(initial_req);
 
     dbg_log(COLOR_REDBG "Error while selecting next level! leaving!\n" COLOR_NORMAL);
 
-err:
-    /* FIXME: reset the platform. Infinite loop is error prone. */
-    dbg_log(COLOR_REDBG "Loader inifinite loop due to an error ...\n" COLOR_NORMAL);
     dbg_flush();
-    while(1);
+    loader_exec_error(loader_get_state());
     return 0;
 }
-#ifdef __GNUC__
-#ifdef __clang__
-# pragma clang optimize on
-#else
-# pragma GCC pop_options
-#endif
-#endif
