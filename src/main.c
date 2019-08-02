@@ -393,10 +393,9 @@ static loader_request_t loader_exec_req_crccheck(loader_state_t nextstate)
 {
     loader_set_state(nextstate);
 
-#ifdef CONFIG_WOOKEY
     {
         /* Sanity check on the current selected partition and the header in flash */
-        if (ctx.boot_flip == sectrue){
+        if (ctx.boot_flip == sectrue) {
             if((ctx.fw)->fw_sig.type != PART_FLIP){
                 dbg_log(COLOR_REDBG "Error: FLIP selected, but partition type in flash header is not conforming!\n" COLOR_NORMAL);
                 dbg_flush();
@@ -412,7 +411,7 @@ static loader_request_t loader_exec_req_crccheck(loader_state_t nextstate)
             }
         }
 #endif
-        else{
+        else {
            goto err;
         }
     }
@@ -448,7 +447,7 @@ static loader_request_t loader_exec_req_crccheck(loader_state_t nextstate)
             goto err;
         }
     }
-#endif
+
     return LOADER_REQ_INTEGRITYCHECK;
 err:
     return LOADER_REQ_SECBREACH;
@@ -482,10 +481,12 @@ static loader_request_t loader_exec_req_integritycheck(loader_state_t nextstate)
         goto err;
     }
 
-# endif
+#endif
     return LOADER_REQ_FLASHLOCK;
+#ifdef CONFIG_LOADER_FW_HASH_CHECK
 err:
     return LOADER_REQ_SECBREACH;
+#endif
 }
 
 static loader_request_t loader_exec_req_flashlock(loader_state_t nextstate)
