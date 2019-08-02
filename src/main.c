@@ -107,15 +107,6 @@ static loader_ctx_t ctx = {
 };
 
 
-/* the DFU button GPIO configuration may vary depending on the board
- * by now, both Wookeyv1 & Wookeyv2 hold the DFU button on GPIO PE4 */
-# ifdef CONFIG_WOOKEY
-#  define DFU_GPIO_PORT GPIO_PE
-#  define DFU_GPIO_PIN  4
-# else
-#  error "Unknown DFU button GPIO configuration! please set it first"
-# endif
-
 /**************************************************************************
  * About generic utility functions, that may be used by the bootloader
  * automaton
@@ -234,21 +225,25 @@ static loader_request_t loader_exec_req_dfucheck(loader_state_t nextstate)
 {
     loader_set_state(nextstate);
 
-#if CONFIG_LOADER_MOCKUP
-#if CONFIG_LOADER_MOCKUP_DFU
-    ctx.dfu_mode = sectrue;
-#endif
-#endif
+    /* the DFU support is only handled for Wookey board, which has both DFU
+     * button and enough flash memory */
+#if CONFIG_WOOKEY
 
-#ifdef CONFIG_FIRMWARE_DFU
+# if CONFIG_LOADER_MOCKUP
+#  if CONFIG_LOADER_MOCKUP_DFU
+    ctx.dfu_mode = sectrue;
+#  endif
+# endif
+
+# ifdef CONFIG_FIRMWARE_DFU
     dev_gpio_info_t gpio = { 0 };
 
     soc_dwt_init();
     dbg_log("Registering button on GPIO E4\n");
     dbg_flush();
 
-    gpio.kref.port = DFU_GPIO_PORT;
-    gpio.kref.pin = DFU_GPIO_PIN;
+    gpio.kref.port = GPIO_PE; /* INFO: this is Wookey board specific */
+    gpio.kref.pin = 4;        /* INFO: this is Wookey board specific */
     gpio.mask = GPIO_MASK_SET_MODE | GPIO_MASK_SET_PUPD |
         GPIO_MASK_SET_TYPE | GPIO_MASK_SET_SPEED |
         GPIO_MASK_SET_EXTI;
@@ -283,8 +278,9 @@ static loader_request_t loader_exec_req_dfucheck(loader_state_t nextstate)
         ctx.dfu_waitsec--;
     } while (ctx.dfu_waitsec > 0);
     dbg_log("Booting...\n");
-#else
+# else
     dbg_log("Booting...\n");
+# endif
 #endif
     return LOADER_REQ_SELECTBANK;
 }
@@ -664,6 +660,7 @@ static loader_request_t loader_exec_automaton_transition(const loader_request_t 
     }
 end_transition:
     return nextreq;
+}
 
 /* execute each requested transition. The automaton must finish in one of
  *    - LOADER_BOOTFW,
