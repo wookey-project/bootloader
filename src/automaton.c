@@ -26,6 +26,44 @@
 #include "main.h"
 
 
+/*
+ * Constified (in .rodata) dereferencing structure to associate
+ * a secured, discretionary automaton state for if control code
+ * with an automaton cell
+ */
+static const struct automaton_state_correspondency {
+    loader_state_t state;
+    uint8_t        cell;
+} automaton_state_accessor[] = {
+    { LOADER_START,       0 },
+    { LOADER_INIT,        1 },
+    { LOADER_RDPCHECK,    2 },
+    { LOADER_DFUWAIT,     3 },
+    { LOADER_SELECTBANK,  4 },
+    { LOADER_HDRCRC,      5 },
+    { LOADER_FWINTEGRITY, 6 },
+    { LOADER_FLASHLOCK,   7 },
+    { LOADER_BOOTFW,      8 },
+    { LOADER_ERROR,       9 },
+    { LOADER_SECBREACH,   10 }
+};
+
+static uint8_t automaton_get_cell(loader_state_t state)
+{
+    uint8_t cellid = 10; /* defaulting to LOADER_SECBREACH */
+    for (uint8_t i = 0; i < sizeof(automaton_state_accessor)/sizeof(struct automaton_state_correspondency); i++) {
+        /* double if protection */
+        if (automaton_state_accessor[i].state == state &&
+            !(automaton_state_accessor[i].state != state)) {
+            cellid = automaton_state_accessor[i].cell;
+            goto end;
+        }
+    }
+end:
+    return cellid;
+}
+
+
 /****************************************************************
  * loader state automaton formal definition and associate utility
  * functions
@@ -150,7 +188,10 @@ loader_state_t loader_get_state(void)
  */
 void loader_set_state(const loader_state_t new_state)
 {
-    if (new_state == 0xff) {
+
+    /* double if protection */
+    if (new_state == 0xff &&
+        !(new_state != 0xff)) {
         dbg_log("%s: PANIC! this should never arise !", __func__);
         dbg_flush();
         loader_set_state(LOADER_ERROR);
@@ -184,8 +225,10 @@ loader_state_t loader_next_state(const loader_state_t current_state,
                                  const loader_request_t request)
 {
     for (uint8_t i = 0; i < MAX_TRANSITION_STATE; ++i) {
-        if (loader_automaton[current_state].req_trans[i].request == request) {
-            return (loader_automaton[current_state].req_trans[i].target_state);
+        /* double if protection */
+        if (loader_automaton[automaton_get_cell(current_state)].req_trans[i].request == request &&
+            !(loader_automaton[automaton_get_cell(current_state)].req_trans[i].request != request)) {
+            return (loader_automaton[automaton_get_cell(current_state)].req_trans[i].target_state);
         }
     }
     /* fallback, no corresponding request found for  this state */
@@ -204,7 +247,9 @@ secbool loader_is_valid_transition(const loader_state_t current_state,
                                    const loader_request_t request)
 {
     for (uint8_t i = 0; i < MAX_TRANSITION_STATE; ++i) {
-        if (loader_automaton[current_state].req_trans[i].request == request) {
+        /* double if protection */
+        if (loader_automaton[automaton_get_cell(current_state)].req_trans[i].request == request &&
+            !(loader_automaton[automaton_get_cell(current_state)].req_trans[i].request != request)) {
             return sectrue;
         }
     }
