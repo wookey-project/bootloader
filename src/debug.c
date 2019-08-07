@@ -71,7 +71,7 @@ void init_ring_buffer(void)
     }
 }
 
-#ifdef CONFIG_KERNEL_SERIAL
+#ifdef CONFIG_LOADER_SERIAL
 void cb_console_data_received(void)
 {
     char c;
@@ -203,7 +203,7 @@ static inline void ring_buffer_write_string(char *str, uint32_t len)
 
 
 
-#ifdef CONFIG_KERNEL_SERIAL
+#ifdef CONFIG_LOADER_SERIAL
 /* flush behavior with activated serial... */
 void dbg_flush(void)
 {
@@ -610,7 +610,7 @@ int dbg_log(const char *fmt, ...)
     return res;
 }
 
-/* WARNING: if KERNEL_SERIAL is not enabled, panic doesn't printout any
+/* WARNING: if LOADER_SERIAL is not enabled, panic doesn't printout any
  * information */
 void panic(char *fmt, ...)
 {
