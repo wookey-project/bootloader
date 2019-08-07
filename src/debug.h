@@ -116,4 +116,6 @@ extern volatile int logging;
 
 void init_ring_buffer(void);
 
+void debug_release(void);
+
 #endif /* !DEBUG_H_ */
