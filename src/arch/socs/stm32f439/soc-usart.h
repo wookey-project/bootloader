@@ -188,6 +188,11 @@ typedef struct __packed {
  */
 void soc_usart_init(usart_config_t * config);
 
+/*
+ * release, deconfigure, disable the clock of the USART and associated GPIOs
+ */
+void soc_usart_release(usart_config_t * config);
+
 /**
  * usart_putc - Send a character
  * @c: Character to send.

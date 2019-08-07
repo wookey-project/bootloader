@@ -634,3 +634,11 @@ void panic(char *fmt, ...)
         continue;
 #endif
 }
+
+void debug_release(void)
+{
+
+#ifdef CONFIG_LOADER_SERIAL
+    soc_usart_release(&console_config);
+#endif
+}

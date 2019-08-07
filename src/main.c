@@ -283,6 +283,8 @@ static loader_request_t loader_exec_req_dfucheck(loader_state_t nextstate)
         dbg_flush();
         ctx.dfu_waitsec--;
     } while (ctx.dfu_waitsec > 0);
+    /* now we have finished with the DFU button, release the GPIO */
+    soc_gpio_release(&gpio);
     dbg_log("Booting...\n");
 # else
     dbg_log("Booting...\n");
@@ -579,6 +581,8 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
     }
 
     if (ctx.next_stage) {
+        /* clear debug device if activated */
+        debug_release();
         ctx.next_stage();
     }
     /* this part of the code should never be reached */

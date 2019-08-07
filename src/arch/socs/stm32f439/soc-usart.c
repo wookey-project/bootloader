@@ -426,3 +426,69 @@ uint32_t soc_usart_get_bus_clock(usart_config_t * config)
 
     return 0;
 }
+
+static void soc_usart_clock_release(usart_config_t * config)
+{
+    switch (config->usart) {
+    case 1:
+        clear_reg_bits(r_CORTEX_M_RCC_APB2ENR, RCC_APB2ENR_USART1EN);
+        break;
+    case 2:
+        clear_reg_bits(r_CORTEX_M_RCC_APB1ENR, RCC_APB1ENR_USART2EN);
+        break;
+    case 3:
+        clear_reg_bits(r_CORTEX_M_RCC_APB1ENR, RCC_APB1ENR_USART3EN);
+        break;
+    case 4:
+        clear_reg_bits(r_CORTEX_M_RCC_APB1ENR, RCC_APB1ENR_UART4EN);
+        break;
+    case 5:
+        clear_reg_bits(r_CORTEX_M_RCC_APB1ENR, RCC_APB1ENR_UART5EN);
+        break;
+    case 6:
+        clear_reg_bits(r_CORTEX_M_RCC_APB2ENR, RCC_APB2ENR_USART6EN);
+        break;
+    default:
+        panic("Wrong usart %d. You should use USART1 to USART6", config->usart);
+    }
+
+    return;
+}
+
+static void soc_usart_release_gpio(usart_config_t * config)
+{
+    dev_gpio_info_t *tx_config;
+    dev_gpio_info_t *rx_config;
+
+    /* Sanity check */
+    if ((config->usart < 1) || (config->usart > 6)) {
+        panic("Wrong usart %d. You should use USART1 to USART6", config->usart);
+    }
+
+    switch (config->mode) {
+    case UART:
+        tx_config = &uart_gpio_config[2 * (config->usart - 1)];
+        rx_config = &uart_gpio_config[(2 * (config->usart - 1)) + 1];
+
+        if (tx_config->kref.port == 0 && rx_config->kref.port == 0) {
+            panic
+                ("UART usart %d does not seem to support UART or to be rooted on the board!",
+                 config->usart);
+        }
+        soc_gpio_release(tx_config);
+        soc_gpio_release(rx_config);
+        break;
+    default:
+        panic("Wrong usart mode %d.", config->mode);
+    }
+}
+
+
+
+void soc_usart_release(usart_config_t * config)
+{
+    soc_usart_clock_release(config);
+    soc_usart_release_gpio(config);
+}
+
+
