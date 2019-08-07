@@ -826,11 +826,15 @@ t_flash_rdp_state flash_check_rdpstate(void)
 void flash_lock_bootloader(void)
 {
     /* set write mode protection to write protect (not PCROP) */
+#ifdef STM32F429                /* STM32F42xxx/STM32F43xxx only */
     set_reg(r_CORTEX_M_FLASH_OPTCR, 0x0, FLASH_OPTCR_SPRMOD);
+#endif
     /* lock bootloader and bootinfo write access on flashbank1 */
     set_reg(r_CORTEX_M_FLASH_OPTCR, 0xFFc, FLASH_OPTCR_nWRP);
 #if CONFIG_FIRMWARE_DUALBANK && CONFIG_USR_DRV_FLASH_2M
+# ifdef STM32F429                /* STM32F42xxx/STM32F43xxx only */
     set_reg(r_CORTEX_M_FLASH_OPTCR1, 0x0, FLASH_OPTCR_SPRMOD);
+# endif
     set_reg(r_CORTEX_M_FLASH_OPTCR1, 0xFFc, FLASH_OPTCR_nWRP);
 #endif
 }
