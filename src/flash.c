@@ -788,6 +788,8 @@ void flash_writelock_bank1(void)
 void flash_writelock_bank2(void)
 {
 #if CONFIG_FIRMWARE_DUALBANK && CONFIG_USR_DRV_FLASH_2M
+
+
     set_reg(r_CORTEX_M_FLASH_OPTCR1, 0x000, FLASH_OPTCR1_nWRP);
 #endif
 }
@@ -819,4 +821,16 @@ t_flash_rdp_state flash_check_rdpstate(void)
         return FLASH_RDP_CHIPPROTECT;
     }
     return FLASH_RDP_MEMPROTECT;
+}
+
+void flash_lock_bootloader(void)
+{
+    /* set write mode protection to write protect (not PCROP) */
+    set_reg(r_CORTEX_M_FLASH_OPTCR, 0x0, FLASH_OPTCR_SPRMOD);
+    /* lock bootloader and bootinfo write access on flashbank1 */
+    set_reg(r_CORTEX_M_FLASH_OPTCR, 0xFFc, FLASH_OPTCR_nWRP);
+#if CONFIG_FIRMWARE_DUALBANK && CONFIG_USR_DRV_FLASH_2M
+    set_reg(r_CORTEX_M_FLASH_OPTCR1, 0x0, FLASH_OPTCR_SPRMOD);
+    set_reg(r_CORTEX_M_FLASH_OPTCR1, 0xFFc, FLASH_OPTCR_nWRP);
+#endif
 }

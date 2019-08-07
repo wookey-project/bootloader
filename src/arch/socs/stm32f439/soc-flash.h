@@ -289,5 +289,6 @@
 #define FLASH_OPTCR_nWRP_9                   ((uint32_t)0x02000000)
 #define FLASH_OPTCR_nWRP_10                  ((uint32_t)0x04000000)
 #define FLASH_OPTCR_nWRP_11		     ((uint32_t)0x08000000)
+#define FLASH_OPTCR_SPRMOD		     ((uint32_t)0x80000000)
 
 #endif /* !SOC_FLASH_H */

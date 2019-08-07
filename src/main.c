@@ -170,6 +170,12 @@ static loader_request_t loader_exec_req_init(loader_state_t nextstate)
     core_systick_init();
     // button now managed at kernel boot to detect if DFU mode
     debug_console_init();
+
+    /* self protecting own code write access */
+    flash_unlock_opt();
+    flash_lock_bootloader();
+    flash_lock_opt();
+
     enable_irq();
 
     dbg_log("======= Wookey Loader ========\n");
