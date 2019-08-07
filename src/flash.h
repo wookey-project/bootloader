@@ -238,5 +238,7 @@ void flash_writeunlock_bank2(void);
 
 t_flash_rdp_state flash_check_rdpstate(void);
 
+void flash_lock_bootloader(void);
+
 #endif /* _STM32F4XX_FLASH_H */
 
