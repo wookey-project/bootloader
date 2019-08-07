@@ -424,7 +424,7 @@ static loader_request_t loader_exec_req_crccheck(loader_state_t nextstate)
     /* sanity check okay, calculating CRC32 */
     {
         uint32_t buf = 0xffffffff;
-#if LOADER_DEBUG
+#if CONFIG_LOADER_EXTRA_DEBUG
         dump_fw_header(fw);
 #endif
         uint32_t crc = 0;

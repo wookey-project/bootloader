@@ -197,7 +197,7 @@ void loader_set_state(const loader_state_t new_state)
         loader_set_state(LOADER_ERROR);
         return;
     }
-#if LOADER_DEBUG
+#if CONFIG_LOADER_EXTRA_DEBUG
     dbg_log("%s: state: %x => %x\n", __func__, state, new_state);
     dbg_flush();
 #endif
