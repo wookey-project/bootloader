@@ -1,5 +1,57 @@
 menu "Bootloader configuration"
 
+config LOADER_SERIAL
+  bool "Loader serial interface activated (debug mode)"
+  default n
+  ---help---
+  This option activates the loader serial interface (mainly
+  for debugging purpose).
+  The loader usart interface is activated.
+  Userspace applications printf content will be printed by
+  the loader.
+  This should be disabled in production mode.
+
+if LOADER_SERIAL
+
+choice
+  prompt "loader console USART identifier"
+  default LOADER_CONSOLE_USART1
+    config LOADER_CONSOLE_USART1
+    bool "loader uses USART1 for its console"
+    ---help---
+      In Discovery board, PB6(TX)/PB7(RX) pins are linked to UART1, if
+      using motherboard DM-STF4BB, the RS232 connector is linked
+      to USART6.
+    config LOADER_CONSOLE_USART4
+    bool "loader uses USART4 for its console"
+    ---help---
+      In Discovery board, PB6(TX)/PB7(RX) pins are linked to UART1, if
+      using motherboard DM-STF4BB, the RS232 connector is linked
+      to USART4.
+  config LOADER_CONSOLE_USART6
+    bool "loader uses USART6 for its console"
+    ---help---
+      In Discovery board, PB6(TX)/PB7(RX) pins are linked to UART1, if
+      using motherboard DM-STF4BB, the RS232 connector is linked
+      to USART6.
+endchoice
+
+config LOADER_USART
+  int
+  default 1 if LOADER_CONSOLE_USART1
+  default 4 if LOADER_CONSOLE_USART4
+  default 6 if LOADER_CONSOLE_USART6
+
+
+config LOADER_EXTRA_DEBUG
+  bool "Enable extra debugging informations"
+  default n
+  ---help---
+  Print extra debugging information on the serial console, like
+  automaton states and transitions
+
+endif
+
 config LOADER_MOCKUP
     bool "Enable bootloader mockup mode"
 

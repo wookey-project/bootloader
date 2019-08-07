@@ -102,9 +102,9 @@ void debug_console_init(void)
      * sys_ipc(LOG) syscall behave like writing in /dev/null.
      */
     init_ring_buffer();
-#ifdef CONFIG_KERNEL_SERIAL
+#ifdef CONFIG_LOADER_SERIAL
     /* Configure the USART in UART mode */
-    console_config.usart = CONFIG_KERNEL_USART;
+    console_config.usart = CONFIG_LOADER_USART;
     console_config.baudrate = 115200;
     console_config.word_length = USART_CR1_M_8;
     console_config.stop_bits = USART_CR2_STOP_1BIT;
