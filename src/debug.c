@@ -38,6 +38,7 @@
 #include "libc.h"
 #include "soc-init.h"
 #include "soc-usart.h"
+#include "soc-nvic.h"
 
 #define BUF_MAX		512
 
