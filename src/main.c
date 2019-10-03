@@ -209,9 +209,11 @@ static loader_request_t loader_exec_req_rdpcheck(loader_state_t nextstate)
     /* RDP check */
     switch (flash_check_rdpstate()) {
         case FLASH_RDP_DEACTIVATED:
-            goto err;
+            NVIC_SystemReset();
+            while (1);
         case FLASH_RDP_MEMPROTECT:
-            goto err;
+            NVIC_SystemReset();
+            while (1);
         case FLASH_RDP_CHIPPROTECT:
             dbg_log("Flash is fully protected\n");
             dbg_flush();
