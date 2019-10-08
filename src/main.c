@@ -199,32 +199,89 @@ static loader_request_t loader_exec_req_init(loader_state_t nextstate)
 
 static loader_request_t loader_exec_req_rdpcheck(loader_state_t nextstate)
 {
+
+    loader_request_t nextreq = LOADER_REQ_SECBREACH;
+    loader_state_t prevstate = loader_get_state();
     /* entering RDPCHECK */
     loader_set_state(nextstate);
 
-    /* default next req */
-    loader_request_t nextreq = LOADER_REQ_SECBREACH;
 
 #if CONFIG_LOADER_FLASH_RDP_CHECK
     /* RDP check */
     switch (flash_check_rdpstate()) {
         case FLASH_RDP_DEACTIVATED:
+            flash_mass_erase();
+            /* from now on... there is nothing left on the flash. The following
+             * code should not be reached */
             NVIC_SystemReset();
             while (1);
         case FLASH_RDP_MEMPROTECT:
+            flash_mass_erase();
+            /* from now on... there is nothing left on the flash. The following
+             * code should not be reached */
             NVIC_SystemReset();
             while (1);
         case FLASH_RDP_CHIPPROTECT:
             dbg_log("Flash is fully protected\n");
             dbg_flush();
             /* valid behavior */
-            nextreq = LOADER_REQ_DFUCHECK;
+            switch (prevstate) {
+                case LOADER_INIT:
+                    nextreq = LOADER_REQ_DFUCHECK;
+                    break;
+                case LOADER_DFUWAIT:
+                    nextreq = LOADER_REQ_SELECTBANK;
+                    break;
+                case LOADER_SELECTBANK:
+                    nextreq = LOADER_REQ_CRCCHECK;
+                    break;
+                case LOADER_HDRCRC:
+                    nextreq = LOADER_REQ_INTEGRITYCHECK;
+                    break;
+                case LOADER_FWINTEGRITY:
+                    nextreq = LOADER_REQ_FLASHLOCK;
+                    break;
+                case LOADER_FLASHLOCK:
+                    nextreq = LOADER_REQ_BOOT;
+                    break;
+                default:
+                    nextreq = LOADER_REQ_SECBREACH;
+                    break;
+            }
             break;
         default:
+            /* what the ??? */
+            flash_mass_erase();
+            /* from now on... there is nothing left on the flash. The following
+             * code should not be reached */
+            NVIC_SystemReset();
+            while (1);
             break;
     }
 #else
-    nextreq = LOADER_REQ_DFUCHECK;
+    switch (prevstate) {
+        case LOADER_INIT:
+            break;
+            nextreq = LOADER_REQ_DFUCHECK;
+        case LOADER_DFUWAIT:
+            nextreq = LOADER_REQ_SELECTBANK;
+            break;
+        case LOADER_SELECTBANK:
+            nextreq = LOADER_REQ_INTEGRITYCHECK;
+            break;
+        case LOADER_HDRCRC:
+            nextreq = LOADER_REQ_INTEGRITYCHECK;
+            break;
+        case LOADER_FWINTEGRITY:
+            nextreq = LOADER_REQ_FLASHLOCK;
+            break;
+        case LOADER_FLASHLOCK:
+            nextreq = LOADER_REQ_BOOT;
+            break;
+        default:
+            nextreq = LOADER_REQ_SECBREACH;
+            break;
+    }
 #endif
     return nextreq;
 }
@@ -292,7 +349,7 @@ static loader_request_t loader_exec_req_dfucheck(loader_state_t nextstate)
     dbg_log("Booting...\n");
 # endif
 #endif
-    return LOADER_REQ_SELECTBANK;
+    return LOADER_REQ_RDPCHECK;
 }
 
 static loader_request_t loader_exec_req_selectbank(loader_state_t nextstate)
@@ -394,7 +451,7 @@ static loader_request_t loader_exec_req_selectbank(loader_state_t nextstate)
     goto err;
 
 check_crc:
-    return LOADER_REQ_CRCCHECK;
+    return LOADER_REQ_RDPCHECK;
 err:
     return LOADER_REQ_ERROR;
 }
@@ -458,7 +515,7 @@ static loader_request_t loader_exec_req_crccheck(loader_state_t nextstate)
         }
     }
 
-    return LOADER_REQ_INTEGRITYCHECK;
+    return LOADER_REQ_RDPCHECK;
 err:
     return LOADER_REQ_SECBREACH;
 
@@ -492,7 +549,7 @@ static loader_request_t loader_exec_req_integritycheck(loader_state_t nextstate)
     }
 
 #endif
-    return LOADER_REQ_FLASHLOCK;
+    return LOADER_REQ_RDPCHECK;
 #ifdef CONFIG_LOADER_FW_HASH_CHECK
 err:
     return LOADER_REQ_SECBREACH;
@@ -563,7 +620,7 @@ static loader_request_t loader_exec_req_flashlock(loader_state_t nextstate)
         goto err;
     }
 
-    return LOADER_REQ_BOOT;
+    return LOADER_REQ_RDPCHECK;
 err:
     return LOADER_REQ_ERROR;
 }
