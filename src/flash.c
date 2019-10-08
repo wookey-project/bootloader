@@ -360,7 +360,7 @@ uint8_t flash_sector_erase(physaddr_t addr)
 	assert(IS_IN_FLASH(addr));
 
 	/* Check that the BSY bit in the FLASH_SR reg is not set */
-	if(flash_is_busy()){
+	if(flash_is_busy()) {
 		log_printf("Flash busy. Should not happen\n");
         flash_busy_wait();
     }
@@ -450,12 +450,14 @@ err:
  */
 void flash_mass_erase(void)
 {
+retry_erase:
 	/* Check that the BSY bit in the FLASH_SR reg is not set */
-	if(flash_is_busy()){
-		log_printf("Flash busy. Should not happen\n");
-		while(1){};
-	}
+    if (flash_is_busy()) {
+        flash_busy_wait();
+    }
 
+    /* unlock the flash */
+    flash_unlock();
 	/* Set MER and MER1 bit */
 	set_reg(r_CORTEX_M_FLASH_CR, 1, FLASH_CR_MER);
 #if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK) /*  Dual blank only on f42xxx/43xxx */
@@ -468,13 +470,9 @@ void flash_mass_erase(void)
 	flash_busy_wait();
 
     if (flash_has_programming_errors()) {
-        goto err;
+        goto retry_erase;
     }
 	return;
-err:
-    log_printf("error while mass-erasing\n");
-    return;
-
 }
 
 
