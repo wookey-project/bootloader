@@ -263,6 +263,7 @@ static loader_request_t loader_exec_req_rdpcheck(loader_state_t nextstate)
         case LOADER_INIT:
             break;
             nextreq = LOADER_REQ_DFUCHECK;
+            break;
         case LOADER_DFUWAIT:
             nextreq = LOADER_REQ_SELECTBANK;
             break;
