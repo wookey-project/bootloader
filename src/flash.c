@@ -254,7 +254,6 @@ uint8_t flash_select_sector(physaddr_t addr)
 		sector = 14;
 	}
 	else if (addr <= FLASH_SECTOR_15_END) {
-        log_printf("sector 15 selected\n");
 		sector = 15;
 	}
 	else if (addr <= FLASH_SECTOR_16_END) {
@@ -458,6 +457,32 @@ retry_erase:
 
     /* unlock the flash */
     flash_unlock();
+    /* first, cleaning nominal usersapce content */
+    flash_sector_erase(0x08080000);
+    flash_sector_erase(0x080A0000);
+    flash_sector_erase(0x080C0000);
+    flash_sector_erase(0x080E0000);
+#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
+    flash_sector_erase(0x08180000);
+    flash_sector_erase(0x081A0000);
+    flash_sector_erase(0x081C0000);
+    flash_sector_erase(0x081E0000);
+#endif
+    /* now flash kernels */
+    flash_sector_erase(0x08020000);
+#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
+    flash_sector_erase(0x08120000);
+#endif
+    /* now flash bootinfo */
+    flash_sector_erase(0x08008000);
+    flash_sector_erase(0x0800C000);
+    flash_sector_erase(0x08010000);
+#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
+    flash_sector_erase(0x08108000);
+    flash_sector_erase(0x0810C000);
+    flash_sector_erase(0x08110000);
+#endif
+
 	/* Set MER and MER1 bit */
 	set_reg(r_CORTEX_M_FLASH_CR, 1, FLASH_CR_MER);
 #if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK) /*  Dual blank only on f42xxx/43xxx */
