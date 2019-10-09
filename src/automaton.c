@@ -167,6 +167,7 @@ static const struct {
     {LOADER_FWINTEGRITY, {
                  {LOADER_REQ_ERROR, LOADER_ERROR},
                  {LOADER_REQ_SECBREACH, LOADER_SECBREACH},
+                 {LOADER_REQ_RDPCHECK, LOADER_RDPCHECK},
                  {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},

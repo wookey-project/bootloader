@@ -261,7 +261,6 @@ static loader_request_t loader_exec_req_rdpcheck(loader_state_t nextstate)
 #else
     switch (prevstate) {
         case LOADER_INIT:
-            break;
             nextreq = LOADER_REQ_DFUCHECK;
             break;
         case LOADER_DFUWAIT:
@@ -670,9 +669,8 @@ static loader_request_t loader_exec_secbreach(loader_state_t state)
     flash_unlock_opt();
     flash_writelock_bank1();
     flash_writelock_bank2();
-    /* flash_mass_erase() <- Yes we can! :-) */
+    flash_mass_erase();
     flash_lock_opt();
-
     NVIC_SystemReset();
     while (1);
     return LOADER_REQ_ERROR;
