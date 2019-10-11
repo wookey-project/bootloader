@@ -88,7 +88,7 @@ static loader_state_t state;
  * the transition handler has to handle this manually.
  */
 
-#define MAX_TRANSITION_STATE 7
+#define MAX_TRANSITION_STATE 8
 
 /*
  * Association between a request and a transition to a next state. This couple
@@ -112,12 +112,14 @@ static const struct {
                  {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},
+                 {0xff, 0xff},
                   }
     },
     {LOADER_INIT, {
                  {LOADER_REQ_ERROR, LOADER_ERROR},
                  {LOADER_REQ_SECBREACH, LOADER_SECBREACH},
                  {LOADER_REQ_RDPCHECK, LOADER_RDPCHECK},
+                 {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},
@@ -129,6 +131,7 @@ static const struct {
                  {LOADER_REQ_SECBREACH, LOADER_SECBREACH},
                  {LOADER_REQ_DFUCHECK, LOADER_DFUWAIT},
                  {LOADER_REQ_SELECTBANK, LOADER_SELECTBANK},
+                 {LOADER_REQ_CRCCHECK, LOADER_HDRCRC},
                  {LOADER_REQ_INTEGRITYCHECK, LOADER_FWINTEGRITY},
                  {LOADER_REQ_FLASHLOCK, LOADER_FLASHLOCK},
                  {LOADER_REQ_BOOT, LOADER_BOOTFW},
@@ -138,6 +141,7 @@ static const struct {
                  {LOADER_REQ_ERROR, LOADER_ERROR},
                  {LOADER_REQ_SECBREACH, LOADER_SECBREACH},
                  {LOADER_REQ_RDPCHECK, LOADER_RDPCHECK},
+                 {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},
@@ -152,12 +156,14 @@ static const struct {
                  {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},
+                 {0xff, 0xff},
                  }
      },
     {LOADER_HDRCRC, {
                  {LOADER_REQ_ERROR, LOADER_ERROR},
                  {LOADER_REQ_SECBREACH, LOADER_SECBREACH},
                  {LOADER_REQ_RDPCHECK, LOADER_RDPCHECK},
+                 {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},
@@ -172,6 +178,7 @@ static const struct {
                  {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},
+                 {0xff, 0xff},
                  }
      },
     {LOADER_FLASHLOCK, {
@@ -182,11 +189,13 @@ static const struct {
                  {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},
+                 {0xff, 0xff},
                  }
      },
     {LOADER_BOOTFW, {
                  {LOADER_REQ_ERROR, LOADER_ERROR},
                  {LOADER_REQ_SECBREACH, LOADER_SECBREACH},
+                 {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},
@@ -202,9 +211,11 @@ static const struct {
                  {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},
+                 {0xff, 0xff},
                  }
      },
     {LOADER_SECBREACH, {
+                 {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},
                  {0xff, 0xff},

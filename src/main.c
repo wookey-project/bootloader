@@ -267,7 +267,7 @@ static loader_request_t loader_exec_req_rdpcheck(loader_state_t nextstate)
             nextreq = LOADER_REQ_SELECTBANK;
             break;
         case LOADER_SELECTBANK:
-            nextreq = LOADER_REQ_INTEGRITYCHECK;
+            nextreq = LOADER_REQ_CRCCHECK;
             break;
         case LOADER_HDRCRC:
             nextreq = LOADER_REQ_INTEGRITYCHECK;
