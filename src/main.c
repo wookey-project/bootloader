@@ -486,7 +486,7 @@ static loader_request_t loader_exec_req_crccheck(loader_state_t nextstate)
     {
         uint32_t buf = 0xffffffff;
 #if CONFIG_LOADER_EXTRA_DEBUG
-        dump_fw_header(fw);
+        dump_fw_header(ctx.fw);
 #endif
         uint32_t crc = 0;
         /* checking CRC32 header check */
