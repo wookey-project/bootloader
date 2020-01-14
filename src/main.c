@@ -58,6 +58,7 @@
 #include "gpio.h"
 #include "types.h"
 #include "flash.h"
+#include "rng.h"
 #include "automaton.h"
 
 #define COLOR_NORMAL  "\033[0m"
@@ -143,7 +144,7 @@ void dump_fw_header(const t_firmware_state *fw)
     dbg_flush();
     dbg_log("Crc32    :  %x\n", fw->fw_sig.crc32);
     dbg_log("Bash     :\n");
-        hexdump(fw->fw_sig.hash, SHA256_DIGEST_SIZE);
+    hexdump(fw->fw_sig.hash, SHA256_DIGEST_SIZE);
     dbg_log("Bootable :  %x\n", fw->bootable);
     dbg_flush();
 }
@@ -166,7 +167,6 @@ static loader_request_t loader_exec_req_init(loader_state_t nextstate)
 
     /* and execute transition */
     disable_irq();
-    system_init((uint32_t) LDR_BASE);
     core_systick_init();
     // button now managed at kernel boot to detect if DFU mode
     debug_console_init();
@@ -745,25 +745,63 @@ static void loader_exec_automaton(loader_request_t req)
 }
 
 
-/*
- * We use the local -fno-stack-protector flag for main because
- * the stack protection has not been initialized yet.
- */
-#ifdef __clang__
-/* FIXME */
-#else
-__attribute__ ((optimize("-fno-stack-protector")))
+#if __GNUC__
+#pragma GCC push_options
+#pragma GCC optimize("-fno-stack-protector")
 #endif
+
+#if __clang__
+#pragma clang optimize off
+  /* Well, clang support local stack protection deactivation only since v8 :-/ */
+#if __clang_major__ > 7
+#pragma clang attribute push(__attribute__((no_stack_protector)), apply_to = do_starttask)
+#endif
+#endif
+
+/* The stack check guard value */
+volatile uint32_t __stack_chk_guard = 0;
+
+/*
+ * This function handles stack check error, corresponding to canary corruption
+ * detection
+ */
+void __stack_chk_fail(void)
+{
+    /* We have failed to check our stack canary: go to panic! */
+    panic("Failed to check the stack guard! Stack corruption!");
+
+    while (1) {};
+}
+
 int main(void)
 {
+    system_init((uint32_t) LDR_BASE);
+    /* Initialize the stack guard */
+    if(rng_manager((uint32_t*)&__stack_chk_guard)){
+        panic("Failed to init stack guard with RNG!");
+        goto err;
+    }
     loader_set_state(LOADER_START);
     loader_request_t initial_req = LOADER_REQ_INIT;
 
     loader_exec_automaton(initial_req);
 
     dbg_log(COLOR_REDBG "Error while selecting next level! leaving!\n" COLOR_NORMAL);
-
     dbg_flush();
     loader_exec_error(loader_get_state());
     return 0;
+err:
+    /* End here in case of critical error */
+    while(1){};
 }
+
+#if __clang__
+#pragma clang optimize on
+#if __clang_major__ > 7
+#pragma clang attribute pop
+#endif
+#endif
+
+#if __GNUC__
+#pragma GCC pop_options
+#endif
