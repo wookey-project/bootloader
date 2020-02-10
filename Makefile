@@ -21,7 +21,11 @@ CFLAGS += -Isrc/ -Iinc/ -Isrc/arch -Isrc/arch/cores/$(ARCH) -Isrc/arch/socs/$(SO
 CFLAGS += -MMD -MP
 CFLAGS += -O0 # required by hardened programing
 
-LDFLAGS := -Tloader.ld $(AFLAGS) -fno-builtin -nostdlib -nostartfiles -Wl,-Map=$(APP_BUILD_DIR)/$(APP_NAME).map
+ifeq ($(CONFIG_USR_DRV_FLASH_DUAL_BANK),y)
+LDFLAGS := -Tloader.dualbank.ld $(AFLAGS) -fno-builtin -nostdlib -nostartfiles -Wl,-Map=$(APP_BUILD_DIR)/$(APP_NAME).map
+else
+LDFLAGS := -Tloader.monobank.ld $(AFLAGS) -fno-builtin -nostdlib -nostartfiles -Wl,-Map=$(APP_BUILD_DIR)/$(APP_NAME).map
+endif
 LD_LIBS += -lsign -L$(APP_BUILD_DIR) -L$(BUILD_DIR)/externals
 
 BUILD_DIR ?= $(PROJ_FILE)build
@@ -101,17 +105,8 @@ $(APP_BUILD_DIR)/arch/cores/$(ARCH)/%.o: arch/cores/$(ARCH)/%.c
 $(APP_BUILD_DIR)/tests/%.o: $(TESTSSRC_DIR)/%.c
 	$(call if_changed,cc_o_c)
 
-# LDSCRIPT
-ifeq (y, $(CONFIG_FIRMWARE_MODE_MONO_BANK))
-$(LDSCRIPT_NAME): loader.monobank.ld.in
-	$(call if_changed,k_ldscript)
-else
-$(LDSCRIPT_NAME): loader.dualbank.ld.in
-	$(call if_changed,k_ldscript)
-endif
-
 # ELF
-$(APP_BUILD_DIR)/$(ELF_NAME): $(LDSCRIPT_NAME) $(OBJ) $(ARCH_OBJ) $(SOC_OBJ) $(SOCASM_OBJ)
+$(APP_BUILD_DIR)/$(ELF_NAME): $(OBJ) $(ARCH_OBJ) $(SOC_OBJ) $(SOCASM_OBJ)
 	$(call if_changed,link_o_target)
 
 # HEX
