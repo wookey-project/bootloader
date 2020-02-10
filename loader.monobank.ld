@@ -6,7 +6,15 @@ ENTRY(Reset_Handler)
 
 _estack = 0x20002000;
 /* */
-INCLUDE BUILDDIR/layout.ld
+MEMORY
+{
+  /* sample flash, 512k */
+  LDR (rx) : ORIGIN = 0x08000000, LENGTH = 0x00008000
+  SHR_FLIP (rw) : ORIGIN = 0x08008000, LENGTH = 0x00008000
+  /* sample RAM, 128k is enough for loader */
+  RAM_USER   (rx) : ORIGIN = 0x20000000, LENGTH = 0x00020000
+}
+
 
 
 /* Define output sections */
@@ -62,11 +70,6 @@ SECTIONS
     KEEP(*(.shared_flip)) ;
   }>SHR_FLIP
 
-  .shared_flop :    {
-    . = ALIGN(4);
-    KEEP(*(.shared_flop)) ;
-  }>SHR_FLOP
-
   /* Initialized data sections goes into RAM, load LMA copy after code */
   .data : AT ( _sidata )
   {
@@ -103,8 +106,7 @@ SECTIONS
     . = ALIGN(4);
     PROVIDE ( end = . );
     PROVIDE ( _end = . );
-    . = . + _Min_Heap_Size;
-    . = . + _Min_Stack_Size;
+    . = . + 4096;
     . = ALIGN(4);
   } >RAM_USER
 
