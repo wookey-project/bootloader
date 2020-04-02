@@ -25,6 +25,9 @@
 #include "automaton.h"
 #include "main.h"
 
+volatile uint64_t controlflow;
+volatile uint64_t currentflow;
+
 
 /*
  * Constified (in .rodata) dereferencing structure to associate
@@ -227,6 +230,28 @@ static const struct {
      },
 };
 
+/*
+ * control flow sequence that must be respected by the automaton
+ */
+#define LOADER_CONTROLFLOW_LENGTH 14
+
+static const uint32_t loader_controlflow[] = {
+    LOADER_START,
+    LOADER_INIT,
+    LOADER_RDPCHECK,
+    LOADER_DFUWAIT,
+    LOADER_RDPCHECK,
+    LOADER_SELECTBANK,
+    LOADER_RDPCHECK,
+    LOADER_HDRCRC,
+    LOADER_RDPCHECK,
+    LOADER_FWINTEGRITY,
+    LOADER_RDPCHECK,
+    LOADER_FLASHLOCK,
+    LOADER_RDPCHECK,
+    LOADER_BOOTFW,
+};
+
 /**********************************************
  * loader getters and setters
  *********************************************/
@@ -236,6 +261,66 @@ loader_state_t loader_get_state(void)
     return state;
 }
 
+
+void loader_init_controlflow(void)
+{
+    /* FIXME: deps on RNG to inject a SEED in controlflow */
+    currentflow = controlflow;
+}
+
+static inline void update_controlflowvar(volatile uint64_t *var, uint32_t value)
+{
+    /* atomic local update of the control flow var.
+     * FIXME: addition is problematic because it does not ensure that
+     * previous states has been executed in the correct order, but only
+     * that they **all** have been executed. Though, as each state check for
+     * the control flow, the order is checked. Althgouh, a mathematical
+     * primitive ensuring variation (successive CRC ? other ?) would be better. */
+    *var += value;
+}
+
+
+
+secbool loader_calculate_flowstate(loader_state_t prevstate,
+                                   loader_state_t nextstate)
+{
+    /*
+     * Here, we recalculate from scratch, based on the prevstate/nextstate pair
+     * (which **must** be unique) to current controlflow value.
+     * We use the flow control sequence set in .rodata to successively increment
+     * myflow up to the state pair we should be on.
+     * The caller function can then compare the result of this function with
+     * loader_update_flowstate(). If the results are the same, the control flow is
+     * keeped. If not, the control flow is corrupted.
+     */
+    /* 1. init myflow to seed */
+    uint64_t myflow = (uint64_t)controlflow;
+    /* 2. starting to init state, for each state pairs different from current one, add
+     * first state of the pair to myflow */
+    for (uint8_t i = 0; i < LOADER_CONTROLFLOW_LENGTH - 1; ++i) {
+        update_controlflowvar(&myflow, loader_controlflow[i]);
+        if (loader_controlflow[i] == prevstate && loader_controlflow[i + 1] == nextstate) {
+            break;
+        }
+    }
+    /* 3. found state pair ? add nextstate en return */
+    update_controlflowvar(&myflow, nextstate);
+    /* TODO: how to harden u64 comparison ? */
+    if (myflow != currentflow) {
+        return secfalse;
+    }
+    return sectrue;
+}
+
+void loader_update_flowstate(loader_state_t nextstate)
+{
+    /* here, we update current flow in order to add the current state to the previous
+     * flow sequence, by adding its state value to the currentflow variable */
+    /* calculation may be more complex to avoid any collision risk. Is there a way
+     * through cryptographic calculation on state value concatenation to avoid any
+     * risk ? */
+    update_controlflowvar(&currentflow, nextstate);
+}
 
 /*
  * This function is eligible in both main thread and ISR

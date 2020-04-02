@@ -164,6 +164,11 @@ extern const shr_vars_t flop_shared_vars;
 static loader_request_t loader_exec_req_init(loader_state_t nextstate)
 {
 
+    loader_state_t prevstate = loader_get_state();
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return LOADER_REQ_SECBREACH;
+    }
     /* entering transition target state (here LOADER_INIT) */
     loader_set_state(nextstate);
 
@@ -191,6 +196,11 @@ static loader_request_t loader_exec_req_rdpcheck(loader_state_t nextstate)
 
     loader_request_t nextreq = LOADER_REQ_SECBREACH;
     loader_state_t prevstate = loader_get_state();
+
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return LOADER_REQ_SECBREACH;
+    }
     /* entering RDPCHECK */
     loader_set_state(nextstate);
 
@@ -277,6 +287,12 @@ static loader_request_t loader_exec_req_rdpcheck(loader_state_t nextstate)
 
 static loader_request_t loader_exec_req_dfucheck(loader_state_t nextstate)
 {
+
+    loader_state_t prevstate = loader_get_state();
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return LOADER_REQ_SECBREACH;
+    }
     loader_set_state(nextstate);
 
     /* the DFU support is only handled for Wookey board, which has both DFU
@@ -343,6 +359,12 @@ static loader_request_t loader_exec_req_dfucheck(loader_state_t nextstate)
 
 static loader_request_t loader_exec_req_selectbank(loader_state_t nextstate)
 {
+    loader_state_t prevstate = loader_get_state();
+
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return LOADER_REQ_SECBREACH;
+    }
     loader_set_state(nextstate);
 
 
@@ -463,6 +485,12 @@ err:
 
 static loader_request_t loader_exec_req_crccheck(loader_state_t nextstate)
 {
+    loader_state_t prevstate = loader_get_state();
+
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return LOADER_REQ_SECBREACH;
+    }
     loader_set_state(nextstate);
 
     {
@@ -528,6 +556,12 @@ err:
 
 static loader_request_t loader_exec_req_integritycheck(loader_state_t nextstate)
 {
+    loader_state_t prevstate = loader_get_state();
+
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return LOADER_REQ_SECBREACH;
+    }
     loader_set_state(nextstate);
 
 #ifdef CONFIG_LOADER_FW_HASH_CHECK
@@ -564,6 +598,12 @@ err:
 static loader_request_t loader_exec_req_flashlock(loader_state_t nextstate)
 {
 
+    loader_state_t prevstate = loader_get_state();
+
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return LOADER_REQ_SECBREACH;
+    }
     loader_set_state(nextstate);
 
     if (ctx.dfu_mode == sectrue) {
@@ -635,6 +675,12 @@ static void PVD_unconfigure(void);
 #endif
 static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
 {
+    loader_state_t prevstate = loader_get_state();
+
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return LOADER_REQ_SECBREACH;
+    }
     loader_set_state(nextstate);
 
     dbg_log("Geronimo !\n");
@@ -933,7 +979,13 @@ int main(void)
         panic("Failed to init stack guard with RNG!");
         goto err;
     }
+    /* init control flow seed */
+    loader_init_controlflow();
+
+    /* init first state */
     loader_set_state(LOADER_START);
+    loader_update_flowstate(LOADER_START);
+
     loader_request_t initial_req = LOADER_REQ_INIT;
 
     loader_exec_automaton(initial_req);
