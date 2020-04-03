@@ -135,4 +135,19 @@ config LOADER_USE_PVD
       Use the STM32 Power Voltage Detection to try to detect voltage or EM
       glitches.
 
+choice
+  prompt "loader behavior on invalid control flow detection"
+  default LOADER_INVAL_CFLOW_GOTO_ERROR
+    config LOADER_INVAL_CFLOW_GOTO_ERROR
+      bool "Error state on invalid control flow"
+      ---help---
+      Goto error state on invalid control flow detection.
+      Usually generates a reset or hang the execution.
+    config LOADER_INVAL_CFLOW_GOTO_SECBREACH
+      bool "Security breach state on invalid control flow"
+      ---help---
+      Goto secbreach state on invalid control flow detection.
+      May generate upto the flash memory erase.
+endchoice
+
 endmenu

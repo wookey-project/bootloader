@@ -160,6 +160,18 @@ extern const shr_vars_t flop_shared_vars;
  * Successive transition functions, each handling one given transition
  *************************************************************************/
 
+static inline loader_request_t invalid_controlflow_target(void)
+{
+#if CONFIG_LOADER_INVAL_CFLOW_GOTO_ERROR
+   return LOADER_REQ_ERROR;
+#elif CONFIG_LOADER_INVAL_CFLOW_GOTO_SECBREACH
+   return LOADER_REQ_SECBREACH;
+#else
+   /* defaulting */
+   return LOADER_REQ_SECBREACH;
+#endif
+}
+
 
 static loader_request_t loader_exec_req_init(loader_state_t nextstate)
 {
@@ -167,7 +179,7 @@ static loader_request_t loader_exec_req_init(loader_state_t nextstate)
     loader_state_t prevstate = loader_get_state();
     loader_update_flowstate(nextstate);
     if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
-        return LOADER_REQ_SECBREACH;
+        return invalid_controlflow_target();
     }
     /* entering transition target state (here LOADER_INIT) */
     loader_set_state(nextstate);
@@ -199,7 +211,7 @@ static loader_request_t loader_exec_req_rdpcheck(loader_state_t nextstate)
 
     loader_update_flowstate(nextstate);
     if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
-        return LOADER_REQ_SECBREACH;
+        return invalid_controlflow_target();
     }
     /* entering RDPCHECK */
     loader_set_state(nextstate);
@@ -291,7 +303,7 @@ static loader_request_t loader_exec_req_dfucheck(loader_state_t nextstate)
     loader_state_t prevstate = loader_get_state();
     loader_update_flowstate(nextstate);
     if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
-        return LOADER_REQ_SECBREACH;
+        return invalid_controlflow_target();
     }
     loader_set_state(nextstate);
 
@@ -363,7 +375,7 @@ static loader_request_t loader_exec_req_selectbank(loader_state_t nextstate)
 
     loader_update_flowstate(nextstate);
     if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
-        return LOADER_REQ_SECBREACH;
+        return invalid_controlflow_target();
     }
     loader_set_state(nextstate);
 
@@ -489,7 +501,7 @@ static loader_request_t loader_exec_req_crccheck(loader_state_t nextstate)
 
     loader_update_flowstate(nextstate);
     if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
-        return LOADER_REQ_SECBREACH;
+        return invalid_controlflow_target();
     }
     loader_set_state(nextstate);
 
@@ -560,7 +572,7 @@ static loader_request_t loader_exec_req_integritycheck(loader_state_t nextstate)
 
     loader_update_flowstate(nextstate);
     if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
-        return LOADER_REQ_SECBREACH;
+        return invalid_controlflow_target();
     }
     loader_set_state(nextstate);
 
@@ -602,7 +614,7 @@ static loader_request_t loader_exec_req_flashlock(loader_state_t nextstate)
 
     loader_update_flowstate(nextstate);
     if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
-        return LOADER_REQ_SECBREACH;
+        return invalid_controlflow_target();
     }
     loader_set_state(nextstate);
 
@@ -679,7 +691,7 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
 
     loader_update_flowstate(nextstate);
     if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
-        return LOADER_REQ_SECBREACH;
+        return invalid_controlflow_target();
     }
     loader_set_state(nextstate);
 
