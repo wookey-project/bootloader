@@ -24,6 +24,7 @@
 #include "autoconf.h"
 #include "soc-rng.h"
 #include "automaton.h"
+#include "hash.h"
 #include "main.h"
 
 volatile uint64_t controlflow;
@@ -296,7 +297,7 @@ static inline void update_controlflowvar(volatile uint64_t *var, uint32_t value)
      * that they **all** have been executed. Though, as each state check for
      * the control flow, the order is checked. Althgouh, a mathematical
      * primitive ensuring variation (successive CRC ? other ?) would be better. */
-    *var += value;
+    *var += hash_state(value);
 
 }
 

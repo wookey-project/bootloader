@@ -38,6 +38,8 @@
 #include "types.h"
 #include "shr.h"
 
+uint64_t hash_state(uint64_t val);
+
 # ifdef CONFIG_LOADER_FW_HASH_CHECK
 secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, uint32_t partition_size);
 
