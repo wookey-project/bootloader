@@ -298,10 +298,6 @@ static inline void update_controlflowvar(volatile uint64_t *var, uint32_t value)
      * primitive ensuring variation (successive CRC ? other ?) would be better. */
     *var += value;
 
-#if CONFIG_LOADER_EXTRA_DEBUG
-    dbg_log("update controlflow to (long long) %ll\n", *var);
-    dbg_flush();
-#endif
 }
 
 
@@ -333,7 +329,7 @@ secbool loader_calculate_flowstate(loader_state_t prevstate,
     update_controlflowvar(&myflow, nextstate);
 
 #if CONFIG_LOADER_EXTRA_DEBUG
-    dbg_log("result of online calculation (%d sequences) is (long long) %ll\n", i, myflow);
+    dbg_log("%s: result of online calculation (%d sequences) is (long long) %ll\n", __func__, i, myflow);
     dbg_flush();
 #endif
     /* TODO: how to harden u64 comparison ? */
@@ -353,6 +349,11 @@ void loader_update_flowstate(loader_state_t nextstate)
      * through cryptographic calculation on state value concatenation to avoid any
      * risk ? */
     update_controlflowvar(&currentflow, nextstate);
+#if CONFIG_LOADER_EXTRA_DEBUG
+    dbg_log("%s: update controlflow to (long long) %ll\n", __func__, currentflow);
+    dbg_flush();
+#endif
+
 }
 
 /*
