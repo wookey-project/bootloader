@@ -698,7 +698,7 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
         debug_release();
 
 #ifdef CONFIG_LOADER_USE_BKPSRAM
-	/* Cleanup Backup SRAM before booting 
+	/* Cleanup Backup SRAM before booting
 	 * This is *safe* since our ctx is in regular SRAM global variable
 	 * Note: our variables here are *static* to avoid messing with the stack ...
 	 */
@@ -706,13 +706,13 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
         static uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
         for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
             bkp_ptr[i] = 0;
-        } 
+        }
         for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
             bkp_ptr[i] = 0;
         }
 #endif
 #ifdef CONFIG_LOADER_USE_PVD
-	/* Clean our PVD configuration before booting the next stage 
+	/* Clean our PVD configuration before booting the next stage
 	 * as we do not know if it will clean stuff.
 	 */
 	PVD_unconfigure();
@@ -828,7 +828,7 @@ static void PVD_configuration(void)
 	set_reg_bits(r_CORTEX_M_RCC_APB1ENR, RCC_APB1ENR_PWREN);
 	/* Activate the PVD IRQ */
 	NVIC_EnableIRQ(PVD_IRQ - 0x10);
-	/* Configure EXTI line 16 (PVD output) to generate interrupts on 
+	/* Configure EXTI line 16 (PVD output) to generate interrupts on
 	 * rising and falling edges of PVD
 	 */
         /* Enable the interrupt line in EXTI_IMR */
@@ -870,7 +870,7 @@ static void PVD_unconfigure(void)
 void PVD_handler(void)
 {
 	NVIC_ClearPendingIRQ(PVD_IRQ);
-	/* We have detected a Vcc glitch/problem here ... Reset! 
+	/* We have detected a Vcc glitch/problem here ... Reset!
 	 * See above for the rationale of resetting instead of mass erase ...
 	 */
 	NVIC_SystemReset();
@@ -940,7 +940,7 @@ int main(void)
        do {
 	flash_mass_erase();
        } while(1);
-    } 
+    }
 #endif
 
 #ifdef CONFIG_LOADER_USE_BKPSRAM
@@ -952,10 +952,10 @@ int main(void)
     uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
     for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
         bkp_ptr[i] = 0;
-    } 
+    }
     for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
         bkp_ptr[i] = 0;
-    } 
+    }
 
     /* Now we pivot our stack pointer to the Backup SRAM:
      * the rationale is that this SRAM is not accessible in
@@ -964,7 +964,7 @@ int main(void)
      * We use a static local variables to avoid messing too much
      * with the stack.
      */
-    static uint32_t sp = (BKPSRAM_BASE + BKPSRAM_SIZE); 
+    static uint32_t sp = (BKPSRAM_BASE + BKPSRAM_SIZE);
     __asm__ volatile ("mov sp, %0" :: "r" (sp) :);
     __asm__ volatile ("isb");
     __asm__ volatile ("dsb");

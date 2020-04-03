@@ -90,7 +90,6 @@ config LOADER_FLASH_RDP_CHECK
       Check if the RDP protection flag is active at boot.
       If RDP protection is not active, then reset the board.
 
-
 config LOADER_ERASE_ON_SECBREACH
    bool "Erase flash on Security breach detection"
    default y

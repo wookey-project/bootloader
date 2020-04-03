@@ -22,6 +22,7 @@
  *
  */
 #include "autoconf.h"
+#include "soc-rng.h"
 #include "automaton.h"
 #include "main.h"
 
@@ -264,7 +265,26 @@ loader_state_t loader_get_state(void)
 
 void loader_init_controlflow(void)
 {
-    /* FIXME: deps on RNG to inject a SEED in controlflow */
+    union u_controlflow {
+        volatile uint64_t *cf64;
+        volatile uint32_t *cf32;
+    };
+    union u_controlflow cf_init;
+    cf_init.cf64 = &controlflow;
+
+    /* set the all 64 bits of the controlflow variable */
+    soc_get_random(&(cf_init.cf32[0]));
+    soc_get_random(&(cf_init.cf32[1]));
+
+#if CONFIG_LOADER_EXTRA_DEBUG
+    dbg_log("initialize controlflow to (long long) %ll\n", controlflow);
+    dbg_flush();
+#endif
+    /* depending on the value of controlflow at start, the value of the
+     * successive calculation of currentflow may generate an uint64_t overflow,
+     * but this is not a problem, because the value itself means nothing while
+     * the two calculated values are the same. If FC detect the overflow, we
+     * cas set the MBS bits of controlflow to 0 to avoid any overflow risk. */
     currentflow = controlflow;
 }
 
@@ -277,6 +297,11 @@ static inline void update_controlflowvar(volatile uint64_t *var, uint32_t value)
      * the control flow, the order is checked. Althgouh, a mathematical
      * primitive ensuring variation (successive CRC ? other ?) would be better. */
     *var += value;
+
+#if CONFIG_LOADER_EXTRA_DEBUG
+    dbg_log("update controlflow to (long long) %ll\n", *var);
+    dbg_flush();
+#endif
 }
 
 
@@ -294,10 +319,11 @@ secbool loader_calculate_flowstate(loader_state_t prevstate,
      * keeped. If not, the control flow is corrupted.
      */
     /* 1. init myflow to seed */
+    uint8_t i = 0;
     uint64_t myflow = (uint64_t)controlflow;
     /* 2. starting to init state, for each state pairs different from current one, add
      * first state of the pair to myflow */
-    for (uint8_t i = 0; i < LOADER_CONTROLFLOW_LENGTH - 1; ++i) {
+    for (i = 0; i < LOADER_CONTROLFLOW_LENGTH - 1; ++i) {
         update_controlflowvar(&myflow, loader_controlflow[i]);
         if (loader_controlflow[i] == prevstate && loader_controlflow[i + 1] == nextstate) {
             break;
@@ -305,8 +331,15 @@ secbool loader_calculate_flowstate(loader_state_t prevstate,
     }
     /* 3. found state pair ? add nextstate en return */
     update_controlflowvar(&myflow, nextstate);
+
+#if CONFIG_LOADER_EXTRA_DEBUG
+    dbg_log("result of online calculation (%d sequences) is (long long) %ll\n", i, myflow);
+    dbg_flush();
+#endif
     /* TODO: how to harden u64 comparison ? */
     if (myflow != currentflow) {
+        /* control flow error detected */
+        dbg_log("Error in control flow ! Fault injection detected !\n");
         return secfalse;
     }
     return sectrue;
