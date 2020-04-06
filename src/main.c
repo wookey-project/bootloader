@@ -50,6 +50,7 @@
 #include "soc-usart-regs.h"
 #include "soc-gpio.h"
 #include "soc-nvic.h"
+#include "soc-rng.h"
 #include "soc-rcc.h"
 #include "soc-interrupts.h"
 #include "boot_mode.h"
@@ -58,7 +59,6 @@
 #include "gpio.h"
 #include "types.h"
 #include "flash.h"
-#include "rng.h"
 #include "automaton.h"
 #include "soc-bkpsram.h"
 #include "soc-pwr.h"
@@ -987,7 +987,7 @@ int main(void)
 #endif
 
     /* Initialize the stack guard */
-    if(rng_manager((uint32_t*)&__stack_chk_guard)){
+    if(soc_get_random((uint32_t*)&__stack_chk_guard)){
         panic("Failed to init stack guard with RNG!");
         goto err;
     }
