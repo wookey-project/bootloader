@@ -359,7 +359,13 @@ static loader_request_t loader_exec_req_selectbank(loader_state_t nextstate)
 
 #ifdef CONFIG_FIRMWARE_DUALBANK
     /* both FLIP and FLOP can be started */
-    if (flip_shared_vars.fw.bootable == FW_BOOTABLE && flop_shared_vars.fw.bootable == FW_BOOTABLE) {
+    /* FIX: found by LETI: a FIA can be done on the fw bootable flag check which permit to corrupt
+     * the bootable firmware flag and change the behavior of the firmware selection, endanger the
+     * anti-rollback security function. Here we duplicate the if to avoid single fault attack.
+     * A postcheck has also be added just before finishing transition.
+     */
+    if ((flip_shared_vars.fw.bootable == FW_BOOTABLE && flop_shared_vars.fw.bootable == FW_BOOTABLE) &&
+        !(flip_shared_vars.fw.bootable != FW_BOOTABLE || flop_shared_vars.fw.bootable != FW_BOOTABLE)){
         ctx.boot_flip = sectrue;
         ctx.boot_flop = sectrue;
         dbg_log("Both firwares have FW_BOOTABLE\n");
@@ -396,6 +402,12 @@ static loader_request_t loader_exec_req_selectbank(loader_state_t nextstate)
             dbg_flush();
             goto err;
         }
+
+        /* FIX found by LETI: continuing patch against FIA attack: postcheck here. shared_vars check should be
+         * the same as at the begining of the function. */
+        if (!(flip_shared_vars.fw.bootable == FW_BOOTABLE && flop_shared_vars.fw.bootable == FW_BOOTABLE)) {
+            goto err;
+        }
         goto check_crc;
     }
     /* only FLOP can be started */
@@ -413,6 +425,10 @@ static loader_request_t loader_exec_req_selectbank(loader_state_t nextstate)
         if (!ctx.fw) {
             dbg_log(COLOR_REDBG "Unable to choose! leaving!\n" COLOR_NORMAL);
             dbg_flush();
+            goto err;
+        }
+        /* postcheck: FIA protection */
+        if(!(flop_shared_vars.fw.bootable == FW_BOOTABLE)){
             goto err;
         }
         goto check_crc;
@@ -685,7 +701,9 @@ static loader_request_t loader_exec_automaton_transition(const loader_request_t 
 {
     loader_state_t state = loader_get_state();
     loader_request_t nextreq = LOADER_REQ_ERROR;
-    if (! loader_is_valid_transition(state, req)) {
+    /* FIX: found by LETI: weakness in previous boolean handling (implicit comparison)
+     * which may lead to successful FIA */
+    if (loader_is_valid_transition(state, req) != sectrue) {
         loader_set_state(LOADER_ERROR);
         goto end_transition;
     }
