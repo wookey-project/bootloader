@@ -43,6 +43,43 @@
 #include "flash_regs.h"
 #include "libc.h"
 
+physaddr_t sectors_toerase[] = {
+    /* first, cleaning nominal usersapce content
+     * (clear encrypted keybags) */
+    FLASH_SECTOR_8,
+    FLASH_SECTOR_9,
+    FLASH_SECTOR_10,
+    FLASH_SECTOR_11,
+#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
+    FLASH_SECTOR_20,
+    FLASH_SECTOR_21,
+    FLASH_SECTOR_22,
+    FLASH_SECTOR_23,
+#endif
+    /* now flash DFU content (clear hability to update) */
+    FLASH_SECTOR_6,
+    FLASH_SECTOR_7,
+#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
+    FLASH_SECTOR_18,
+    FLASH_SECTOR_19,
+#endif
+    /* now erase kernels */
+    FLASH_SECTOR_5,
+#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
+    FLASH_SECTOR_17,
+#endif
+    /* and bootinfo (bootloader will fail forever) */
+    FLASH_SECTOR_2,
+    FLASH_SECTOR_3,
+    FLASH_SECTOR_4,
+#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
+    FLASH_SECTOR_14,
+    FLASH_SECTOR_15,
+    FLASH_SECTOR_16,
+#endif
+};
+
+
 #define FLASH_DEBUG 0
 
 /* Primitive for debug output */
@@ -96,8 +133,12 @@ static inline void flash_busy_wait(void){
  *
  * FIXME Check if CR bit is == RESET ?
  */
-void flash_unlock(void)
+int flash_unlock(void)
 {
+    if (get_reg(r_CORTEX_M_FLASH_CR, FLASH_CR_LOCK) == 0) {
+        /* already unlocked */
+        return 0;
+    }
 	log_printf("Unlocking flash\n");
 	write_reg_value(r_CORTEX_M_FLASH_KEYR, KEY1);
 	write_reg_value(r_CORTEX_M_FLASH_KEYR, KEY2);
@@ -108,6 +149,13 @@ void flash_unlock(void)
      * errata: this is *not* described in the datasheet !
      */
     set_reg(r_CORTEX_M_FLASH_SR, 1, FLASH_SR_PGSERR);
+
+    /* checking that flash CR unlock worked */
+    if (get_reg(r_CORTEX_M_FLASH_CR, FLASH_CR_LOCK) == 1) {
+	   log_printf("flash unlocking failed !\n");
+       return 1;
+    }
+    return 0;
 }
 
 /**
@@ -243,45 +291,46 @@ uint8_t flash_select_sector(physaddr_t addr)
 	}
     /* 1MB flash in single banking finishes here */
 #endif
+    /* from now on (sector starting with sector 12, are encoded starting with 0b10000 */
 # if (CONFIG_USR_DRV_FLASH_1M && CONFIG_USR_DRV_FLASH_DUAL_BANK) || CONFIG_USR_DRV_FLASH_2M
 	else if (addr <= FLASH_SECTOR_12_END) {
-		sector = 12;
+		sector = 0x10;
 	}
 	else if (addr <= FLASH_SECTOR_13_END) {
-		sector = 13;
+		sector = 0x11;
 	}
 	else if (addr <= FLASH_SECTOR_14_END) {
-		sector = 14;
+		sector = 0x12;
 	}
 	else if (addr <= FLASH_SECTOR_15_END) {
-		sector = 15;
+		sector = 0x13;
 	}
 	else if (addr <= FLASH_SECTOR_16_END) {
-		sector = 16;
+		sector = 0x14;
 	}
 	else if (addr <= FLASH_SECTOR_17_END) {
-		sector = 17;
+		sector = 0x15;
 	}
 	else if (addr <= FLASH_SECTOR_18_END) {
-		sector = 18;
+		sector = 0x16;
 	}
 	else if (addr <= FLASH_SECTOR_19_END) {
-		sector = 19;
+		sector = 0x17;
 	}
     /* 1MB flash in dual banking finishes here */
 #endif
 # if CONFIG_USR_DRV_FLASH_2M
 	else if (addr <= FLASH_SECTOR_20_END) {
-		sector = 20;
+		sector = 0x18;
 	}
 	else if (addr <= FLASH_SECTOR_21_END) {
-		sector = 21;
+		sector = 0x19;
 	}
 	else if (addr <= FLASH_SECTOR_22_END) {
-		sector = 22;
+		sector = 0x1a;
 	}
 	else if (addr <= FLASH_SECTOR_23_END) {
-		sector = 23;
+		sector = 0x1b;
 	}
     /* 2MB flash in dual banking finishes here */
 #endif
@@ -307,12 +356,12 @@ static inline bool flash_has_programming_errors(void)
 #endif
     if (reg & err_mask) {
         if (reg & FLASH_SR_OPERR_Msk) {
-            log_printf("flash write error: OPERR\n");
+            log_printf("flash operation error: OPERR\n");
             set_reg(r_CORTEX_M_FLASH_SR, 1, FLASH_SR_OPERR);
             goto err;
         }
         if (reg & FLASH_SR_WRPERR_Msk) {
-            log_printf("flash write error: WRPERR\n");
+            log_printf("flash write protection error: WRPERR\n");
             set_reg(r_CORTEX_M_FLASH_SR, 1, FLASH_SR_WRPERR);
             goto err;
         }
@@ -346,6 +395,7 @@ err:
 
 
 
+
 /**
  * \brief Erase a sector on the flash memory.
  *
@@ -358,11 +408,6 @@ uint8_t flash_sector_erase(physaddr_t addr)
 	/* Check that we're looking into the flash */
 	assert(IS_IN_FLASH(addr));
 
-	/* Check that the BSY bit in the FLASH_SR reg is not set */
-	if(flash_is_busy()) {
-		log_printf("Flash busy. Should not happen\n");
-        flash_busy_wait();
-    }
 
 	/* Select sector to erase */
 	sector = flash_select_sector(addr);
@@ -373,6 +418,16 @@ uint8_t flash_sector_erase(physaddr_t addr)
     }
 #endif
 	log_printf("Erasing flash sector #%d\n", sector);
+
+	/* Check that the BSY bit in the FLASH_SR reg is not set */
+	if(flash_is_busy()) {
+        flash_busy_wait();
+    }
+
+    /* check if flash is unlock, and unlock it if needed */
+    if (flash_unlock() != 0) {
+        log_printf("unable to unlock flash!\n");
+    }
 
 	/* Set PSIZE to 0b10 (see STM-RM00090 chap. 3.6.2, PSIZE must be set) */
 	set_reg(r_CORTEX_M_FLASH_CR, 2, FLASH_CR_PSIZE);
@@ -444,58 +499,76 @@ err:
     return;
 }
 
+
+
 /**
  * \brief Mass erase (erase the whole flash)
+ *
+ * info: busy check and unlock is done at sector_erase level
  */
 void flash_mass_erase(void)
 {
-retry_erase:
-	/* Check that the BSY bit in the FLASH_SR reg is not set */
-    if (flash_is_busy()) {
-        flash_busy_wait();
-    }
+    int ret = 0;
+#if LOADER_ERASE_WITH_RECOVERY
+    uint32_t data[4];
+    uint32_t check[4];
+    secbool otp_done = secfalse;
 
-    /* unlock the flash */
-    flash_unlock();
-    /* first, cleaning nominal usersapce content */
-    flash_sector_erase(0x08080000);
-    flash_sector_erase(0x080A0000);
-    flash_sector_erase(0x080C0000);
-    flash_sector_erase(0x080E0000);
-#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
-    flash_sector_erase(0x08180000);
-    flash_sector_erase(0x081A0000);
-    flash_sector_erase(0x081C0000);
-    flash_sector_erase(0x081E0000);
+    data[0] = 0xDEADCAFE;
+    rng_manager((uint32_t*)&data[1]);
+    data[2] = 0xCACACACA;
+    rng_manager((uint32_t*)&data[3]);
+    uint8_t ret = 0;
 #endif
-    /* now flash kernels */
-    flash_sector_erase(0x08020000);
-#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
-    flash_sector_erase(0x08120000);
-#endif
-    /* now flash bootinfo */
-    flash_sector_erase(0x08008000);
-    flash_sector_erase(0x0800C000);
-    flash_sector_erase(0x08010000);
-#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
-    flash_sector_erase(0x08108000);
-    flash_sector_erase(0x0810C000);
-    flash_sector_erase(0x08110000);
-#endif
+    for (uint8_t i = 0; i < (sizeof(sectors_toerase)/sizeof(physaddr_t)); ++i) {
+        /* first, cleaning nominal usersapce content
+         * (clear encrypted keybags) */
+#if LOADER_ERASE_WITH_RECOVERY
+        /* first we check if current block is already erased. As this check is critical
+         * and is a typical FIA target, checks are multiplied, data set multiple times
+         * and random values generated multiple times to make FIA highly complex
+         * If the current sector is effectively already erased, pass to next sector */
+        flash_read_otp_block(i, &check[0], 4);
+        if (check[0] == 0xDEADCAFE &&
+                (check[2] == 0xCACACACA)) {
 
-	/* Set MER and MER1 bit */
-	set_reg(r_CORTEX_M_FLASH_CR, 1, FLASH_CR_MER);
-#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK) /*  Dual blank only on f42xxx/43xxx */
-	set_reg(r_CORTEX_M_FLASH_CR, 1, FLASH_CR_MER1);
+            if (!(check[2] != 0xCACACACA) &&
+                    (!(check[0] != 0xDEADCAFE))) {
+                /* already erased, continue */
+                check[0] = 0;
+                check[2] = 0;
+                rng_manager((uint32_t*)&check[0]);
+                rng_manager((uint32_t*)&check[2]);
+                continue;
+            }
+        }
 #endif
-	/* Set STRT bit in FLASH_CR reg */
-	set_reg(r_CORTEX_M_FLASH_CR, 1, FLASH_CR_STRT);
-
-	/* Wait for BSY bit to be cleared */
-	flash_busy_wait();
-
-    if (flash_has_programming_errors()) {
-        goto retry_erase;
+        /*effective sector erase, with retry (max 3) */
+        uint8_t retry = 3;
+        do {
+            ret = flash_sector_erase(sectors_toerase[i]);
+            retry--;
+        } while (ret == 0xff && retry > 0);
+#if LOADER_ERASE_WITH_RECOVERY
+        do {
+            otp_done = sectrue;
+            /* write and lock OTP block 0 */
+            flash_write_otp_block(i, &data[0], 4);
+            /* the b.x here can be faulted (FIA) , making the write otp or otp lock
+             * failing. The flash_write and flash_lock must finish with a final
+             * flash_read_otp_block(i) to be sure that the block is effectively written
+             * (at least). */
+            flash_read_otp_block(i, &check[0], 4);
+            if ((check[0] != data[0]) ||
+                    (check[1] != data[1]) ||
+                    (check[2] != data[2]) ||
+                    (check[3] != data[3])) {
+                log_printf("corruption while setting flash OTP sector !!! FIA ?\n");
+                otp_done = secfalse;
+            }
+        } while (otp_done == secflase);
+        flash_lock_otp_block(i);
+#endif
     }
 	return;
 }
@@ -860,4 +933,175 @@ void flash_lock_bootloader(void)
 # endif
     set_reg(r_CORTEX_M_FLASH_OPTCR1, 0xFFc, FLASH_OPTCR_nWRP);
 #endif
+}
+
+
+int flash_lock_otp_block(uint8_t block_id)
+{
+    if (block_id >= 16) {
+        return 1;
+    }
+    flash_busy_wait();
+    flash_unlock();
+    /* 1 byte parallelism */
+	set_reg(r_CORTEX_M_FLASH_CR, 0x00, FLASH_CR_PSIZE);
+    /* programming mode */
+	set_reg(r_CORTEX_M_FLASH_CR, 1, FLASH_CR_PG);
+
+    uint8_t *lock_block = FLASH_OTP_LOCK_BLOCK;
+    /* set corresponding OTP lock byte */
+    lock_block[block_id] = 0x00;
+    flash_busy_wait();
+    return 0;
+}
+
+int flash_read_otp_block(uint8_t block_id, uint32_t *data, uint32_t data_len)
+{
+    uint32_t *otp_block;
+    if (block_id >= 16) {
+        return 1;
+    }
+    if (data == NULL) {
+        return 2;
+    }
+    if (data_len > 4) {
+        return 3;
+    }
+    flash_busy_wait();
+    switch (block_id) {
+        case 0:
+            otp_block = FLASH_OTP_BLOCK_0;
+            break;
+        case 1:
+            otp_block = FLASH_OTP_BLOCK_1;
+            break;
+        case 2:
+            otp_block = FLASH_OTP_BLOCK_2;
+            break;
+        case 3:
+            otp_block = FLASH_OTP_BLOCK_3;
+            break;
+        case 4:
+            otp_block = FLASH_OTP_BLOCK_4;
+            break;
+        case 5:
+            otp_block = FLASH_OTP_BLOCK_5;
+            break;
+        case 6:
+            otp_block = FLASH_OTP_BLOCK_6;
+            break;
+        case 7:
+            otp_block = FLASH_OTP_BLOCK_7;
+            break;
+        case 8:
+            otp_block = FLASH_OTP_BLOCK_8;
+            break;
+        case 9:
+            otp_block = FLASH_OTP_BLOCK_9;
+            break;
+        case 10:
+            otp_block = FLASH_OTP_BLOCK_10;
+            break;
+        case 11:
+            otp_block = FLASH_OTP_BLOCK_11;
+            break;
+        case 12:
+            otp_block = FLASH_OTP_BLOCK_12;
+            break;
+        case 13:
+            otp_block = FLASH_OTP_BLOCK_13;
+            break;
+        case 14:
+            otp_block = FLASH_OTP_BLOCK_14;
+            break;
+        case 15:
+            otp_block = FLASH_OTP_BLOCK_15;
+            break;
+        default:
+            return 1;
+    }
+
+    for (uint8_t i = 0; i < data_len; ++i) {
+        data[i] = otp_block[i];
+    }
+    return 0;
+}
+
+int flash_write_otp_block(uint8_t block_id, uint32_t *data, uint32_t data_len)
+{
+    if (block_id >= 16) {
+        return 1;
+    }
+    if (data == NULL) {
+        return 2;
+    }
+    if (data_len > 4 || data_len < 1) {
+        return 3;
+    }
+    flash_busy_wait();
+    flash_unlock();
+    /* 32 bits parallelism */
+	set_reg(r_CORTEX_M_FLASH_CR, 0x10, FLASH_CR_PSIZE);
+    /* programming mode */
+	set_reg(r_CORTEX_M_FLASH_CR, 1, FLASH_CR_PG);
+    uint32_t *otp_block = NULL;
+    switch (block_id) {
+        case 0:
+            otp_block = FLASH_OTP_BLOCK_0;
+            break;
+        case 1:
+            otp_block = FLASH_OTP_BLOCK_1;
+            break;
+        case 2:
+            otp_block = FLASH_OTP_BLOCK_2;
+            break;
+        case 3:
+            otp_block = FLASH_OTP_BLOCK_3;
+            break;
+        case 4:
+            otp_block = FLASH_OTP_BLOCK_4;
+            break;
+        case 5:
+            otp_block = FLASH_OTP_BLOCK_5;
+            break;
+        case 6:
+            otp_block = FLASH_OTP_BLOCK_6;
+            break;
+        case 7:
+            otp_block = FLASH_OTP_BLOCK_7;
+            break;
+        case 8:
+            otp_block = FLASH_OTP_BLOCK_8;
+            break;
+        case 9:
+            otp_block = FLASH_OTP_BLOCK_9;
+            break;
+        case 10:
+            otp_block = FLASH_OTP_BLOCK_10;
+            break;
+        case 11:
+            otp_block = FLASH_OTP_BLOCK_11;
+            break;
+        case 12:
+            otp_block = FLASH_OTP_BLOCK_12;
+            break;
+        case 13:
+            otp_block = FLASH_OTP_BLOCK_13;
+            break;
+        case 14:
+            otp_block = FLASH_OTP_BLOCK_14;
+            break;
+        case 15:
+            otp_block = FLASH_OTP_BLOCK_15;
+            break;
+        default:
+            return 1;
+    }
+    /* set corresponding OTP lock byte */
+    for (uint8_t i = 0; i < data_len; ++i) {
+        /* 128 bytes to write */
+        otp_block[i] = data[i];
+        flash_busy_wait();
+    }
+    return 0;
 }

@@ -682,11 +682,9 @@ static loader_request_t loader_exec_secbreach(loader_state_t state)
     dbg_flush();
     /*In case of security breach, we may react differently before reseting */
     /* let's lock both flash bank*/
-    flash_unlock_opt();
-    flash_writelock_bank1();
-    flash_writelock_bank2();
+#if CONFIG_LOADER_ERASE_ON_SECBREACH
     flash_mass_erase();
-    flash_lock_opt();
+#endif
     NVIC_SystemReset();
     while (1);
     return LOADER_REQ_ERROR;

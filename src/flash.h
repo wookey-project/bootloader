@@ -188,6 +188,46 @@
 #define FLASH_OPTION_BYTES_BK2_END	((uint32_t) 0x1FFEC00F)
 
 
+/*
+ * About OTP memory
+ */
+#define FLASH_OTP_BLOCK_0			((uint32_t*) 0x1FFF7800) /* 32 By */
+#define FLASH_OTP_BLOCK_0_END		((uint32_t) 0x1FFF781F)
+#define FLASH_OTP_BLOCK_1			((uint32_t*) 0x1FFF7820) /* 32 By */
+#define FLASH_OTP_BLOCK_1_END		((uint32_t) 0x1FFF783F)
+#define FLASH_OTP_BLOCK_2			((uint32_t*) 0x1FFF7840) /* 32 By */
+#define FLASH_OTP_BLOCK_2_END		((uint32_t) 0x1FFF785F)
+#define FLASH_OTP_BLOCK_3			((uint32_t*) 0x1FFF7860) /* 32 By */
+#define FLASH_OTP_BLOCK_3_END		((uint32_t) 0x1FFF787F)
+#define FLASH_OTP_BLOCK_4			((uint32_t*) 0x1FFF7880) /* 32 By */
+#define FLASH_OTP_BLOCK_4_END		((uint32_t) 0x1FFF789F)
+#define FLASH_OTP_BLOCK_5			((uint32_t*) 0x1FFF78A0) /* 32 By */
+#define FLASH_OTP_BLOCK_5_END		((uint32_t) 0x1FFF78BF)
+#define FLASH_OTP_BLOCK_6			((uint32_t*) 0x1FFF78C0) /* 32 By */
+#define FLASH_OTP_BLOCK_6_END		((uint32_t) 0x1FFF78DF)
+#define FLASH_OTP_BLOCK_7			((uint32_t*) 0x1FFF78E0) /* 32 By */
+#define FLASH_OTP_BLOCK_7_END		((uint32_t) 0x1FFF78FF)
+#define FLASH_OTP_BLOCK_8			((uint32_t*) 0x1FFF7900) /* 32 By */
+#define FLASH_OTP_BLOCK_8_END		((uint32_t) 0x1FFF791F)
+#define FLASH_OTP_BLOCK_9			((uint32_t*) 0x1FFF7920) /* 32 By */
+#define FLASH_OTP_BLOCK_9_END		((uint32_t) 0x1FFF793F)
+#define FLASH_OTP_BLOCK_10  		((uint32_t*) 0x1FFF7940) /* 32 By */
+#define FLASH_OTP_BLOCK_10_END		((uint32_t) 0x1FFF795F)
+#define FLASH_OTP_BLOCK_11  		((uint32_t*) 0x1FFF7960) /* 32 By */
+#define FLASH_OTP_BLOCK_11_END		((uint32_t) 0x1FFF797F)
+#define FLASH_OTP_BLOCK_12  		((uint32_t*) 0x1FFF7980) /* 32 By */
+#define FLASH_OTP_BLOCK_12_END		((uint32_t) 0x1FFF799F)
+#define FLASH_OTP_BLOCK_13  		((uint32_t*) 0x1FFF79A0) /* 32 By */
+#define FLASH_OTP_BLOCK_13_END		((uint32_t) 0x1FFF79BF)
+#define FLASH_OTP_BLOCK_14  		((uint32_t*) 0x1FFF79C0) /* 32 By */
+#define FLASH_OTP_BLOCK_14_END		((uint32_t) 0x1FFF79DF)
+#define FLASH_OTP_BLOCK_15  		((uint32_t*) 0x1FFF79E0) /* 32 By */
+#define FLASH_OTP_BLOCK_15_END		((uint32_t) 0x1FFF79FF)
+
+
+/* array of 16 bytes (from 0 to 15). When the corresponding cell of the lock block
+ * is set to 0x00, the associated OTP block is no more writeable */
+#define FLASH_OTP_LOCK_BLOCK        ((uint8_t*) 0x1FFF7A00)
 
 typedef enum {
     FLASH_RDP_DEACTIVATED = 0x85606b8c,
@@ -196,7 +236,7 @@ typedef enum {
 } t_flash_rdp_state;
 
 /******* Flash operations **********/
-void flash_unlock(void);
+int flash_unlock(void);
 
 void flash_unlock_opt(void);
 
@@ -239,6 +279,10 @@ void flash_writeunlock_bank2(void);
 t_flash_rdp_state flash_check_rdpstate(void);
 
 void flash_lock_bootloader(void);
+
+int flash_write_otp_block(uint8_t block_id, uint32_t *data, uint32_t data_len);
+
+int flash_lock_otp_block(uint8_t block_id);
 
 #endif /* _STM32F4XX_FLASH_H */
 
