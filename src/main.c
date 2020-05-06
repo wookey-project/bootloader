@@ -469,7 +469,7 @@ static loader_request_t loader_exec_req_selectbank(loader_state_t nextstate)
 check_crc:
     return LOADER_REQ_RDPCHECK;
 err:
-    return LOADER_REQ_ERROR;
+    return LOADER_REQ_SECBREACH;
 }
 
 static loader_request_t loader_exec_req_crccheck(loader_state_t nextstate)
