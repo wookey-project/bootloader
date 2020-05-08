@@ -60,6 +60,7 @@
 #include "flash.h"
 #include "rng.h"
 #include "automaton.h"
+#include "soc-bkpsram.h"
 
 #define COLOR_NORMAL  "\033[0m"
 #define COLOR_REVERSE "\033[7m"
@@ -642,6 +643,18 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
     if (ctx.next_stage) {
         /* clear debug device if activated */
         debug_release();
+	/* Cleanup SRAM before booting 
+	 * This is *safe* since our ctx is in regular SRAM global variable
+	 * Note: our variables here are *static* to avoid messing with the stack ...
+	 */
+        static unsigned int i;
+        static uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
+        for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
+            bkp_ptr[i] = 0;
+        } 
+        for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
+            bkp_ptr[i] = 0;
+        } 
         ctx.next_stage();
     }
     /* this part of the code should never be reached */
@@ -776,6 +789,32 @@ void __stack_chk_fail(void)
 int main(void)
 {
     system_init((uint32_t) LDR_BASE);
+
+    /* Initialize our Backup SRAM */
+    bkpsram_init();
+
+    /* Clean the Backup SRAM from potential previous data */
+    unsigned int i;
+    uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
+    for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
+        bkp_ptr[i] = 0;
+    } 
+    for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
+        bkp_ptr[i] = 0;
+    } 
+
+    /* Now we pivot our stack pointer to the Backup SRAM:
+     * the rationale is that this SRAM is not accessible in
+     * RDP1 mode, and our sensitive computations (such as
+     * hashing the flash) will be 'hidden' to a potential attacker.
+     * We use a static local variables to avoid messing too much
+     * with the stack.
+     */
+    static uint32_t sp = (BKPSRAM_BASE + BKPSRAM_SIZE); 
+    __asm__ volatile ("mov sp, %0" :: "r" (sp) :);
+    __asm__ volatile ("isb");
+    __asm__ volatile ("dsb");
+
     /* Initialize the stack guard */
     if(rng_manager((uint32_t*)&__stack_chk_guard)){
         panic("Failed to init stack guard with RNG!");
