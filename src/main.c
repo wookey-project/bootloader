@@ -61,6 +61,7 @@
 #include "rng.h"
 #include "automaton.h"
 #include "soc-bkpsram.h"
+#include "soc-pwr.h"
 
 #define COLOR_NORMAL  "\033[0m"
 #define COLOR_REVERSE "\033[7m"
@@ -643,7 +644,9 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
     if (ctx.next_stage) {
         /* clear debug device if activated */
         debug_release();
-	/* Cleanup SRAM before booting 
+
+#ifdef CONFIG_LOADER_USE_BKPSRAM
+	/* Cleanup Backup SRAM before booting 
 	 * This is *safe* since our ctx is in regular SRAM global variable
 	 * Note: our variables here are *static* to avoid messing with the stack ...
 	 */
@@ -654,7 +657,8 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
         } 
         for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
             bkp_ptr[i] = 0;
-        } 
+        }
+#endif
         ctx.next_stage();
     }
     /* this part of the code should never be reached */
@@ -757,6 +761,37 @@ static void loader_exec_automaton(loader_request_t req)
     }
 }
 
+#ifdef CONFIG_LOADER_USE_PVD
+/******** PVD handler ****/
+#define EXTI_LINE16 ((uint32_t)0x10000)
+static void PVD_configuration(void)
+{
+	/* Enable PWR clock */
+	set_reg_bits(r_CORTEX_M_RCC_APB1ENR, RCC_APB1ENR_PWREN);
+	/* Activate the PVD IRQ */
+	NVIC_EnableIRQ(PVD_IRQ - 0x10);
+	/* Configure EXTI line 16 (PVD output) to generate interrupts on 
+	 * rising and falling edges of PVD
+	 */
+        /* Enable the interrupt line in EXTI_IMR */
+        set_reg_bits(EXTI_IMR,  EXTI_LINE16);
+	/* Configure the rising and falling edges events on line 16 */
+	set_reg_bits(EXTI_RTSR, EXTI_LINE16);
+	set_reg_bits(EXTI_FTSR, EXTI_LINE16);
+	/* Now configure the PVD level detection to 2.8V */
+	set_reg(r_CORTEX_M_PWR_CR, PWR_CR_PLS_2_8V, PWR_CR_PLS);
+	/* Enable PVD */
+	set_reg(r_CORTEX_M_PWR_CR, 1, PWR_CR_PVDE);
+}
+
+void PVD_handler(void)
+{
+	NVIC_ClearPendingIRQ(PVD_IRQ);
+	/* We have detected a Vcc glitch/problem here ... Reset! */
+	NVIC_SystemReset();
+	while (1);
+}
+#endif
 
 #if __GNUC__
 #pragma GCC push_options
@@ -790,6 +825,7 @@ int main(void)
 {
     system_init((uint32_t) LDR_BASE);
 
+#ifdef CONFIG_LOADER_USE_BKPSRAM
     /* Initialize our Backup SRAM */
     bkpsram_init();
 
@@ -814,6 +850,11 @@ int main(void)
     __asm__ volatile ("mov sp, %0" :: "r" (sp) :);
     __asm__ volatile ("isb");
     __asm__ volatile ("dsb");
+#endif
+
+#ifdef CONFIG_LOADER_USE_PVD
+    PVD_configuration();
+#endif
 
     /* Initialize the stack guard */
     if(rng_manager((uint32_t*)&__stack_chk_guard)){
