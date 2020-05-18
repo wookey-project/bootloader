@@ -36,6 +36,21 @@
 
 #include "types.h"
 
+# define EXTI               REG_ADDR(EXTI_BASE)
+# define EXTI_IMR           REG_ADDR(EXTI_BASE + 0x00) /*!< Interrupt mask register            */
+# define EXTI_EMR           REG_ADDR(EXTI_BASE + 0x04) /*!< Event mask register                */
+# define EXTI_RTSR          REG_ADDR(EXTI_BASE + 0x08) /*!< Rising trigger selection register  */
+# define EXTI_FTSR          REG_ADDR(EXTI_BASE + 0x0C) /*!< Falling trigger selection register */
+# define EXTI_SWIER         REG_ADDR(EXTI_BASE + 0x10) /*!< Software interrupt event register  */
+# define EXTI_PR            REG_ADDR(EXTI_BASE + 0x14) /*!< Pending register                   */
+
+# define EXTI_IMR_DEFAUT    ((uint32_t)0x00000000)
+# define EXTI_EMR_DEFAUT    ((uint32_t)0x00000000)
+# define EXTI_RTSR_DEFAUT   ((uint32_t)0x00000000)
+# define EXTI_FTSR_DEFAUT   ((uint32_t)0x00000000)
+# define EXTI_SWIER_DEFAUT  ((uint32_t)0x00000000)
+
+
 /*
 ** That structure points to the saved registers on the caller
 ** (mostly a user task) stack.

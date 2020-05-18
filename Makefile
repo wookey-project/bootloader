@@ -21,6 +21,12 @@ CFLAGS += -Isrc/ -Iinc/ -Isrc/arch -Isrc/arch/cores/$(ARCH) -Isrc/arch/socs/$(SO
 CFLAGS += -MMD -MP
 CFLAGS += -O0 # required by hardened programing
 
+ifeq ($(CONFIG_LOADER_USE_BKPSRAM),y)
+# Add this safe guard when using backup SRAM to
+# detect when we overflow it.
+CFLAGS += -Wstack-usage=4096
+endif
+
 ifeq ($(CONFIG_USR_DRV_FLASH_DUAL_BANK),y)
 LDFLAGS := -Tloader.dualbank.ld $(AFLAGS) -fno-builtin -nostdlib -nostartfiles -Wl,-Map=$(APP_BUILD_DIR)/$(APP_NAME).map
 else
