@@ -13,6 +13,8 @@ MEMORY
   SHR_FLIP (rw) : ORIGIN = 0x08008000, LENGTH = 0x00008000
   /* sample RAM, 128k is enough for loader */
   RAM_USER   (rx) : ORIGIN = 0x20000000, LENGTH = 0x00020000
+  /* Backup SRAM, safe against RDP2->RDP1 downgrade  */
+  BKP_SRAM   (rw) : ORIGIN = 0x40024000, LENGTH = 0x00001000
 }
 
 

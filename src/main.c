@@ -627,6 +627,9 @@ err:
     return LOADER_REQ_ERROR;
 }
 
+#ifdef CONFIG_LOADER_USE_PVD
+static void PVD_unconfigure(void);
+#endif
 static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
 {
     loader_set_state(nextstate);
@@ -658,6 +661,12 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
         for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
             bkp_ptr[i] = 0;
         }
+#endif
+#ifdef CONFIG_LOADER_USE_PVD
+	/* Clean our PVD configuration before booting the next stage 
+	 * as we do not know if it will clean stuff.
+	 */
+	PVD_unconfigure();
 #endif
         ctx.next_stage();
     }
@@ -784,10 +793,37 @@ static void PVD_configuration(void)
 	set_reg(r_CORTEX_M_PWR_CR, 1, PWR_CR_PVDE);
 }
 
+static void PVD_unconfigure(void)
+{
+	/* Clear pending PCD IRQ */
+	NVIC_ClearPendingIRQ(PVD_IRQ);
+	/* Disable PVD IRQ */
+	NVIC_DisableIRQ(PVD_IRQ - 0x10);
+	/* Clear EXTI line 16 related stuff */
+        clear_reg_bits(EXTI_IMR,  EXTI_LINE16);
+	clear_reg_bits(EXTI_RTSR, EXTI_LINE16);
+	clear_reg_bits(EXTI_FTSR, EXTI_LINE16);
+	/* Reset PVD level detection to default value */
+	set_reg(r_CORTEX_M_PWR_CR, 0, PWR_CR_PLS);
+	/* Disable PVD */
+	set_reg(r_CORTEX_M_PWR_CR, 0, PWR_CR_PVDE);
+}
+
+/* NOTE: we would like to perform a mass erase when detecting a
+ * voltage glitch instead of resetting the platform.
+ * However, it is difficult to characterize the "false positive" ration,
+ * and a mass erase would be disastrous for the legitimate end user if
+ * it is performed with no reason! This explains our conservative decision
+ * of performing a RESET instead.
+ * This could be migrated to a more agressive mass erase when a proper
+ * characterization of nominal usage and PVD has been performed.
+ */
 void PVD_handler(void)
 {
 	NVIC_ClearPendingIRQ(PVD_IRQ);
-	/* We have detected a Vcc glitch/problem here ... Reset! */
+	/* We have detected a Vcc glitch/problem here ... Reset! 
+	 * See above for the rationale of resetting instead of mass erase ...
+	 */
 	NVIC_SystemReset();
 	while (1);
 }
