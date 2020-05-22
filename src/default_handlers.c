@@ -48,7 +48,7 @@
 
 
 
-stack_frame_t *HardFault_Handler(stack_frame_t * frame)
+static stack_frame_t *HardFault_Handler(stack_frame_t * frame)
 {
     uint32_t    cfsr = *((volatile uint32_t *) r_CORTEX_M_SCB_CFSR);
     uint32_t    hfsr = *((volatile uint32_t *) r_CORTEX_M_SCB_HFSR);
@@ -81,6 +81,16 @@ stack_frame_t *HardFault_Handler(stack_frame_t * frame)
     return frame;
 }
 
+#ifdef CONFIG_LOADER_USE_PVD
+/* PVD handler (final handler is defined elsewhere) */
+void PVD_handler(void);
+static stack_frame_t *EXTI_PVD_handler(stack_frame_t * stack_frame)
+{
+	PVD_handler();
+	return stack_frame;
+}
+#endif
+
 /*
  * To avoid purging the Default_Handler stack (making irq_enter/irq_return
  * fail), all the default handler algorithmic MUST be done in a subframe (i.e.
@@ -104,9 +114,16 @@ __ISR_HANDLER stack_frame_t *Default_SubHandler(stack_frame_t * stack_frame)
     interrupt_get_num(int_num);
     int_num &= 0x1ff;
 
-    if (int_num == 3) {
+    /* Hard Fault handler */
+    if (int_num == HARDFAULT_IRQ) {
         HardFault_Handler(stack_frame);
     }
+#ifdef CONFIG_LOADER_USE_PVD
+    /* PVD handler */
+    if (int_num == PVD_IRQ) {
+        EXTI_PVD_handler(stack_frame);
+    }
+#endif
 
     asm volatile
        ("mov r1, #0" ::: "r1");

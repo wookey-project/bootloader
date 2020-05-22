@@ -242,10 +242,9 @@ typedef struct {
 	uint32_t            bsr_r;
 	uint32_t            bsr_s;
 	uint32_t            lck;
-    gpio_exti_trigger_t exti_trigger;
-    gpio_exti_lock_t    exti_lock;
+	gpio_exti_trigger_t exti_trigger;
+	gpio_exti_lock_t    exti_lock;
 	user_handler_t      exti_handler;
-
 } dev_gpio_info_t;
 
 #endif

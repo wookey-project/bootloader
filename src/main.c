@@ -60,6 +60,8 @@
 #include "flash.h"
 #include "rng.h"
 #include "automaton.h"
+#include "soc-bkpsram.h"
+#include "soc-pwr.h"
 
 #define COLOR_NORMAL  "\033[0m"
 #define COLOR_REVERSE "\033[7m"
@@ -641,6 +643,9 @@ err:
     return LOADER_REQ_ERROR;
 }
 
+#ifdef CONFIG_LOADER_USE_PVD
+static void PVD_unconfigure(void);
+#endif
 static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
 {
     loader_set_state(nextstate);
@@ -658,6 +663,27 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
     if (ctx.next_stage) {
         /* clear debug device if activated */
         debug_release();
+
+#ifdef CONFIG_LOADER_USE_BKPSRAM
+	/* Cleanup Backup SRAM before booting 
+	 * This is *safe* since our ctx is in regular SRAM global variable
+	 * Note: our variables here are *static* to avoid messing with the stack ...
+	 */
+        static unsigned int i;
+        static uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
+        for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
+            bkp_ptr[i] = 0;
+        } 
+        for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
+            bkp_ptr[i] = 0;
+        }
+#endif
+#ifdef CONFIG_LOADER_USE_PVD
+	/* Clean our PVD configuration before booting the next stage 
+	 * as we do not know if it will clean stuff.
+	 */
+	PVD_unconfigure();
+#endif
         ctx.next_stage();
     }
     /* this part of the code should never be reached */
@@ -760,6 +786,64 @@ static void loader_exec_automaton(loader_request_t req)
     }
 }
 
+#ifdef CONFIG_LOADER_USE_PVD
+/******** PVD handler ****/
+#define EXTI_LINE16 ((uint32_t)0x10000)
+static void PVD_configuration(void)
+{
+	/* Enable PWR clock */
+	set_reg_bits(r_CORTEX_M_RCC_APB1ENR, RCC_APB1ENR_PWREN);
+	/* Activate the PVD IRQ */
+	NVIC_EnableIRQ(PVD_IRQ - 0x10);
+	/* Configure EXTI line 16 (PVD output) to generate interrupts on 
+	 * rising and falling edges of PVD
+	 */
+        /* Enable the interrupt line in EXTI_IMR */
+        set_reg_bits(EXTI_IMR,  EXTI_LINE16);
+	/* Configure the rising and falling edges events on line 16 */
+	set_reg_bits(EXTI_RTSR, EXTI_LINE16);
+	set_reg_bits(EXTI_FTSR, EXTI_LINE16);
+	/* Now configure the PVD level detection to 2.8V */
+	set_reg(r_CORTEX_M_PWR_CR, PWR_CR_PLS_2_8V, PWR_CR_PLS);
+	/* Enable PVD */
+	set_reg(r_CORTEX_M_PWR_CR, 1, PWR_CR_PVDE);
+}
+
+static void PVD_unconfigure(void)
+{
+	/* Clear pending PCD IRQ */
+	NVIC_ClearPendingIRQ(PVD_IRQ);
+	/* Disable PVD IRQ */
+	NVIC_DisableIRQ(PVD_IRQ - 0x10);
+	/* Clear EXTI line 16 related stuff */
+        clear_reg_bits(EXTI_IMR,  EXTI_LINE16);
+	clear_reg_bits(EXTI_RTSR, EXTI_LINE16);
+	clear_reg_bits(EXTI_FTSR, EXTI_LINE16);
+	/* Reset PVD level detection to default value */
+	set_reg(r_CORTEX_M_PWR_CR, 0, PWR_CR_PLS);
+	/* Disable PVD */
+	set_reg(r_CORTEX_M_PWR_CR, 0, PWR_CR_PVDE);
+}
+
+/* NOTE: we would like to perform a mass erase when detecting a
+ * voltage glitch instead of resetting the platform.
+ * However, it is difficult to characterize the "false positive" ration,
+ * and a mass erase would be disastrous for the legitimate end user if
+ * it is performed with no reason! This explains our conservative decision
+ * of performing a RESET instead.
+ * This could be migrated to a more agressive mass erase when a proper
+ * characterization of nominal usage and PVD has been performed.
+ */
+void PVD_handler(void)
+{
+	NVIC_ClearPendingIRQ(PVD_IRQ);
+	/* We have detected a Vcc glitch/problem here ... Reset! 
+	 * See above for the rationale of resetting instead of mass erase ...
+	 */
+	NVIC_SystemReset();
+	while (1);
+}
+#endif
 
 #if __GNUC__
 #pragma GCC push_options
@@ -792,6 +876,38 @@ void __stack_chk_fail(void)
 int main(void)
 {
     system_init((uint32_t) LDR_BASE);
+
+#ifdef CONFIG_LOADER_USE_BKPSRAM
+    /* Initialize our Backup SRAM */
+    bkpsram_init();
+
+    /* Clean the Backup SRAM from potential previous data */
+    unsigned int i;
+    uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
+    for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
+        bkp_ptr[i] = 0;
+    } 
+    for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
+        bkp_ptr[i] = 0;
+    } 
+
+    /* Now we pivot our stack pointer to the Backup SRAM:
+     * the rationale is that this SRAM is not accessible in
+     * RDP1 mode, and our sensitive computations (such as
+     * hashing the flash) will be 'hidden' to a potential attacker.
+     * We use a static local variables to avoid messing too much
+     * with the stack.
+     */
+    static uint32_t sp = (BKPSRAM_BASE + BKPSRAM_SIZE); 
+    __asm__ volatile ("mov sp, %0" :: "r" (sp) :);
+    __asm__ volatile ("isb");
+    __asm__ volatile ("dsb");
+#endif
+
+#ifdef CONFIG_LOADER_USE_PVD
+    PVD_configuration();
+#endif
+
     /* Initialize the stack guard */
     if(rng_manager((uint32_t*)&__stack_chk_guard)){
         panic("Failed to init stack guard with RNG!");
