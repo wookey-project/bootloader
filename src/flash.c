@@ -38,10 +38,12 @@
  */
 
 #include "autoconf.h"
+#include "types.h"
 #include "flash.h"
 #include "regutils.h"
 #include "flash_regs.h"
 #include "libc.h"
+#include "rng.h"
 
 physaddr_t sectors_toerase[] = {
     /* first, cleaning nominal usersapce content
@@ -500,6 +502,27 @@ err:
 }
 
 
+#ifdef CONFIG_LOADER_ERASE_WITH_RECOVERY
+/**
+ * \brief Check if mass erase (erase the whole flash) is ongoing
+ *
+ * info: returns a sec boolean
+ */
+secbool flash_mass_erase_ongoing(void)
+{
+	/* If at least one of the OTP is positioned, this means that we
+	 * have an erasure in progress.
+	 */
+    	uint32_t check[4];
+    	for (uint8_t i = 0; i < (sizeof(sectors_toerase)/sizeof(physaddr_t)); ++i) {
+        	flash_read_otp_block(i, &check[0], 4);
+		if((check[0] != 0) || (check[1] != 0) || (check[2] != 0) || (check[3] != 0)){
+			return sectrue;
+		}
+	}
+	return secfalse;
+}
+#endif
 
 /**
  * \brief Mass erase (erase the whole flash)
@@ -509,7 +532,7 @@ err:
 void flash_mass_erase(void)
 {
     int ret = 0;
-#if LOADER_ERASE_WITH_RECOVERY
+#ifdef CONFIG_LOADER_ERASE_WITH_RECOVERY
     uint32_t data[4];
     uint32_t check[4];
     secbool otp_done = secfalse;
@@ -518,12 +541,11 @@ void flash_mass_erase(void)
     rng_manager((uint32_t*)&data[1]);
     data[2] = 0xCACACACA;
     rng_manager((uint32_t*)&data[3]);
-    uint8_t ret = 0;
 #endif
     for (uint8_t i = 0; i < (sizeof(sectors_toerase)/sizeof(physaddr_t)); ++i) {
         /* first, cleaning nominal usersapce content
          * (clear encrypted keybags) */
-#if LOADER_ERASE_WITH_RECOVERY
+#ifdef CONFIG_LOADER_ERASE_WITH_RECOVERY
         /* first we check if current block is already erased. As this check is critical
          * and is a typical FIA target, checks are multiplied, data set multiple times
          * and random values generated multiple times to make FIA highly complex
@@ -549,8 +571,8 @@ void flash_mass_erase(void)
             ret = flash_sector_erase(sectors_toerase[i]);
             retry--;
         } while (ret == 0xff && retry > 0);
-#if LOADER_ERASE_WITH_RECOVERY
-        do {
+#ifdef CONFIG_LOADER_ERASE_WITH_RECOVERY
+        do {
             otp_done = sectrue;
             /* write and lock OTP block 0 */
             flash_write_otp_block(i, &data[0], 4);
@@ -566,7 +588,7 @@ void flash_mass_erase(void)
                 log_printf("corruption while setting flash OTP sector !!! FIA ?\n");
                 otp_done = secfalse;
             }
-        } while (otp_done == secflase);
+        } while (otp_done == secfalse);
         flash_lock_otp_block(i);
 #endif
     }

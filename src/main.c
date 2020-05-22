@@ -877,6 +877,21 @@ int main(void)
 {
     system_init((uint32_t) LDR_BASE);
 
+#ifdef CONFIG_LOADER_ERASE_WITH_RECOVERY
+    /* Check if a mass erase was ongoing ... */
+    if(flash_mass_erase_ongoing() != secfalse){
+       do {
+	flash_mass_erase();
+       } while(1);
+    }
+    if(flash_mass_erase_ongoing() != secfalse){
+       do {
+	flash_mass_erase();
+       } while(1);
+    } 
+
+#endif
+
 #ifdef CONFIG_LOADER_USE_BKPSRAM
     /* Initialize our Backup SRAM */
     bkpsram_init();
