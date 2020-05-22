@@ -90,6 +90,26 @@ config LOADER_FLASH_RDP_CHECK
       Check if the RDP protection flag is active at boot.
       If RDP protection is not active, then reset the board.
 
+
+config LOADER_ERASE_ON_SECBREACH
+   bool "Erase flash on Security breach detection"
+   default y
+   ---help---
+      If the bootloader detect a security breach (SECBREACH state), the flash
+      is erased to protect assets. In RDP2 mode, the device is broken.
+
+if LOADER_ERASE_ON_SECBREACH
+
+config LOADER_ERASE_WITH_RECOVERY
+   bool "Handle reset while erasing"
+   default n
+   ---help---
+     If the device resets while the bootloader is in security erase mode, handle
+     flash erase continuation at bootup, using One Time Programable flash blocks
+     to handle current erase state.
+
+endif
+
 config LOADER_USE_BKPSRAM
    bool "Use the Backup SRAM"
    default y
@@ -103,6 +123,5 @@ config LOADER_USE_PVD
    ---help---
       Use the STM32 Power Voltage Detection to try to detect voltage or EM
       glitches.
-
 
 endmenu
