@@ -942,7 +942,9 @@ int flash_lock_otp_block(uint8_t block_id)
         return 1;
     }
     flash_busy_wait();
-    flash_unlock();
+    if (flash_unlock()) {
+        return 1;
+    }
     /* 1 byte parallelism */
 	set_reg(r_CORTEX_M_FLASH_CR, 0x00, FLASH_CR_PSIZE);
     /* programming mode */
@@ -1039,7 +1041,9 @@ int flash_write_otp_block(uint8_t block_id, uint32_t *data, uint32_t data_len)
         return 3;
     }
     flash_busy_wait();
-    flash_unlock();
+    if (flash_unlock()) {
+        return 4;
+    }
     /* 32 bits parallelism */
 	set_reg(r_CORTEX_M_FLASH_CR, 0x10, FLASH_CR_PSIZE);
     /* programming mode */
