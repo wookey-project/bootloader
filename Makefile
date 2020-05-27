@@ -111,8 +111,12 @@ $(APP_BUILD_DIR)/arch/cores/$(ARCH)/%.o: arch/cores/$(ARCH)/%.c
 $(APP_BUILD_DIR)/tests/%.o: $(TESTSSRC_DIR)/%.c
 	$(call if_changed,cc_o_c)
 
+# SoC and core conent is not requiring O0
+arch: CFLAGS += -Os
+arch: $(ARCH_OBJ) $(SOC_OBJ) $(SOCASM_OBJ)
+
 # ELF
-$(APP_BUILD_DIR)/$(ELF_NAME): $(OBJ) $(ARCH_OBJ) $(SOC_OBJ) $(SOCASM_OBJ)
+$(APP_BUILD_DIR)/$(ELF_NAME): $(OBJ) arch
 	$(call if_changed,link_o_target)
 
 # HEX
