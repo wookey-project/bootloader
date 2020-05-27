@@ -248,6 +248,10 @@ uint8_t flash_select_sector(physaddr_t addr);
 
 uint8_t flash_sector_erase(physaddr_t addr);
 
+#ifdef CONFIG_LOADER_ERASE_WITH_RECOVERY
+secbool flash_mass_erase_ongoing(void);
+#endif
+
 void flash_mass_erase(void);
 
 void flash_program_dword(uint64_t *addr, uint64_t value);
@@ -279,6 +283,8 @@ void flash_writeunlock_bank2(void);
 t_flash_rdp_state flash_check_rdpstate(void);
 
 void flash_lock_bootloader(void);
+
+int flash_read_otp_block(uint8_t block_id, uint32_t *data, uint32_t data_len);
 
 int flash_write_otp_block(uint8_t block_id, uint32_t *data, uint32_t data_len);
 
