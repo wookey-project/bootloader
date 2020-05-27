@@ -44,8 +44,9 @@
 #include "flash_regs.h"
 #include "libc.h"
 #include "rng.h"
+#include "debug.h"
 
-physaddr_t sectors_toerase[] = {
+const physaddr_t sectors_toerase[] = {
     /* first, cleaning nominal usersapce content
      * (clear encrypted keybags) */
     FLASH_SECTOR_8,
@@ -81,12 +82,73 @@ physaddr_t sectors_toerase[] = {
 #endif
 };
 
+const physaddr_t sectors_toerase_end[] = {
+    FLASH_SECTOR_8_END,
+    FLASH_SECTOR_9_END,
+    FLASH_SECTOR_10_END,
+    FLASH_SECTOR_11_END,
+#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
+    FLASH_SECTOR_20_END,
+    FLASH_SECTOR_21_END,
+    FLASH_SECTOR_22_END,
+    FLASH_SECTOR_23_END,
+#endif
+    /* now flash DFU content (clear hability to update) */
+    FLASH_SECTOR_6_END,
+    FLASH_SECTOR_7_END,
+#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
+    FLASH_SECTOR_18_END,
+    FLASH_SECTOR_19_END,
+#endif
+    /* now erase kernels */
+    FLASH_SECTOR_5_END,
+#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
+    FLASH_SECTOR_17_END,
+#endif
+    /* and bootinfo (bootloader will fail forever) */
+    FLASH_SECTOR_2_END,
+    FLASH_SECTOR_3_END,
+    FLASH_SECTOR_4_END,
+#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
+    FLASH_SECTOR_14_END,
+    FLASH_SECTOR_15_END,
+    FLASH_SECTOR_16_END,
+#endif
+};
 
-#define FLASH_DEBUG 0
+/* Sanity check */
+#if defined(CONFIG_LOADER_EMULATE_OTP) && defined(CONFIG_FIRMWARE_BUILD_MODE_PROD)
+/* Prevent OTP emulation in production mode */
+#error "Error: sorry, OTP emulation is not allowed in production mode!"
+#endif
+
+#if defined(CONFIG_LOADER_EMULATE_OTP)
+/* Emulate OTP with SRAM value */
+__attribute__((section(".nonzerobss"))) static uint32_t otp_emulation_otp[512/sizeof(uint32_t)];
+__attribute__((section(".nonzerobss"))) static uint8_t otp_emulation_lock[16];
+/* NOTE: default values at (cold) reset in SRAM on STM32F4 are 0xaa */
+static uint32_t otp_default_value = 0xaaaaaaaa;
+static uint8_t otp_lock_default_value = 0xaa;
+
+static inline void otp_emulation_reset(void)
+{
+    	for (uint8_t i = 0; i < (512/sizeof(uint32_t)); ++i) {
+		otp_emulation_otp[i] = otp_default_value;
+	}
+    	for (uint8_t i = 0; i < 16; ++i) {
+		otp_emulation_lock[i] = otp_lock_default_value;
+	}
+}
+#else
+static uint32_t otp_default_value = 0xffffffff;
+static uint8_t otp_lock_default_value = 0xff;
+#endif
+
+#define FLASH_DEBUG 1
 
 /* Primitive for debug output */
 #if FLASH_DEBUG
-#define log_printf(...) dbg_llog(__VA_ARGS__)
+#define log_printf(...) do { dbg_log(__VA_ARGS__); dbg_flush(); } while(0);
 #else
 #define log_printf(...)
 #endif
@@ -108,17 +170,6 @@ physaddr_t sectors_toerase[] = {
  *     -> from 0x1FFFC000 to 1FFFC00F
  * - the Bank 2 option bytes
  *     -> from 0x1FFEC000 to 1FFEC00F
- *
- *  All these areasare not mapped continuously and request independent
- *  device mapping.
- *  As a consequence, and because it is not possible to map such a number of
- *  device, all devices are mapped VOLUNTARY, and are dynamically mapped/unmapped
- *  as needed by this driver.
- *
- *  At init time, the upper layer specify which device in the above list
- *  is requested to be declared. This permit to declare only the required one, avoiding
- *  the mapping of devices like the OTP area, which is not always needed, depending
- *  on the upper layer needs.
  *
  */
 
@@ -413,13 +464,8 @@ uint8_t flash_sector_erase(physaddr_t addr)
 
 	/* Select sector to erase */
 	sector = flash_select_sector(addr);
-#if defined(CONFIG_USR_DRV_FLASH_DUAL_BANK)
-    if (sector > 11) {
-        /* updating sector number for SNB[4:0] field instead of SNB[3:0] */
-        sector = (sector - 12) | 0x10;
-    }
-#endif
-	log_printf("Erasing flash sector #%d\n", sector);
+
+	log_printf("Erasing flash sector #%d (encoded with %d)\n", (sector & 0x10) ? (12 + (sector & 0x10)) : sector, sector);
 
 	/* Check that the BSY bit in the FLASH_SR reg is not set */
 	if(flash_is_busy()) {
@@ -515,8 +561,24 @@ secbool flash_mass_erase_ongoing(void)
 	 */
     	uint32_t check[4];
     	for (uint8_t i = 0; i < (sizeof(sectors_toerase)/sizeof(physaddr_t)); ++i) {
-        	flash_read_otp_block(i, &check[0], 4);
-		if((check[0] != 0) || (check[1] != 0) || (check[2] != 0) || (check[3] != 0)){
+        	flash_read_otp_block(((i >= 15) ? 15 : i), &check[0], 4);
+		if((check[0] != otp_default_value) || (check[1] != otp_default_value) || (check[2] != otp_default_value) || (check[3] != otp_default_value)){
+#if CONFIG_LOADER_EXTRA_DEBUG
+			log_printf("Mass erase ongoing detected!\n");
+#endif
+			return sectrue;
+		}
+	}
+#if defined(CONFIG_LOADER_EMULATE_OTP)
+        uint8_t *lock_block = (uint8_t*)otp_emulation_lock;
+#else
+        uint8_t *lock_block = FLASH_OTP_LOCK_BLOCK;
+#endif
+    	for (uint8_t i = 0; i < 16; ++i) {
+		if(lock_block[i] != otp_lock_default_value){
+#if CONFIG_LOADER_EXTRA_DEBUG
+			log_printf("Mass erase ongoing detected!\n");
+#endif
 			return sectrue;
 		}
 	}
@@ -542,26 +604,60 @@ void flash_mass_erase(void)
     data[2] = 0xCACACACA;
     rng_manager((uint32_t*)&data[3]);
 #endif
+
+#if CONFIG_LOADER_EXTRA_DEBUG
+    log_printf("Mass erase: unlocking flash for Bank1, Bank2 and Bootloader\n");
+#endif
+    /* First things first, we write unlock everything that could be locked
+     * in order to avoid errors when erasing. 
+     */
+    flash_unlock_opt();
+    flash_writeunlock_bank1();
+    flash_writeunlock_bank2();
+    flash_writeunlock_bootloader();
+    flash_lock_opt();
+
+    uint8_t curr_otp_pos = 0;
     for (uint8_t i = 0; i < (sizeof(sectors_toerase)/sizeof(physaddr_t)); ++i) {
+#if CONFIG_LOADER_EXTRA_DEBUG
+        log_printf("Mass erase: treating sector @0x%x (%d)\n", sectors_toerase[i], i);
+#endif
         /* first, cleaning nominal usersapce content
          * (clear encrypted keybags) */
 #ifdef CONFIG_LOADER_ERASE_WITH_RECOVERY
+	/* If i >= 15, this means that we have reached our maximum number of OTP blocks */
+        if(i >= 15){
+             curr_otp_pos = 15;
+        }
+        else{
+             curr_otp_pos = i;
+        }
         /* first we check if current block is already erased. As this check is critical
          * and is a typical FIA target, checks are multiplied, data set multiple times
          * and random values generated multiple times to make FIA highly complex
          * If the current sector is effectively already erased, pass to next sector */
-        flash_read_otp_block(i, &check[0], 4);
+	if(i >= 16){
+        	flash_read_otp_block(15, &check[0], 4);
+	}
+	else{
+	        flash_read_otp_block(i, &check[0], 4);
+	}
         if (check[0] == 0xDEADCAFE &&
                 (check[2] == 0xCACACACA)) {
-
             if (!(check[2] != 0xCACACACA) &&
                     (!(check[0] != 0xDEADCAFE))) {
-                /* already erased, continue */
-                check[0] = 0;
-                check[2] = 0;
-                rng_manager((uint32_t*)&check[0]);
-                rng_manager((uint32_t*)&check[2]);
-                continue;
+                /* Check that the sector has been probably indeed erased (should contain 0xff) */
+		if(((*((uint32_t*)sectors_toerase[i])) == 0xffffffff) && (*((uint8_t*)sectors_toerase_end[i]) == 0xff)){
+                    /* already erased, continue */
+                    check[0] = 0;
+                    check[2] = 0;
+                    rng_manager((uint32_t*)&check[0]);
+                    rng_manager((uint32_t*)&check[2]);
+#if CONFIG_LOADER_EXTRA_DEBUG
+  		    log_printf("Mass erase: skipping already treated sector @0x%x (%d)\n", sectors_toerase[i], i);
+#endif
+                    continue;
+                }
             }
         }
 #endif
@@ -572,24 +668,29 @@ void flash_mass_erase(void)
             retry--;
         } while (ret == 0xff && retry > 0);
 #ifdef CONFIG_LOADER_ERASE_WITH_RECOVERY
-        do {
-            otp_done = sectrue;
-            /* write and lock OTP block 0 */
-            flash_write_otp_block(i, &data[0], 4);
-            /* the b.x here can be faulted (FIA) , making the write otp or otp lock
-             * failing. The flash_write and flash_lock must finish with a final
-             * flash_read_otp_block(i) to be sure that the block is effectively written
-             * (at least). */
-            flash_read_otp_block(i, &check[0], 4);
-            if ((check[0] != data[0]) ||
-                    (check[1] != data[1]) ||
-                    (check[2] != data[2]) ||
-                    (check[3] != data[3])) {
-                log_printf("corruption while setting flash OTP sector !!! FIA ?\n");
-                otp_done = secfalse;
-            }
-        } while (otp_done == secfalse);
-        flash_lock_otp_block(i);
+        if((curr_otp_pos < 15) || (i == ((sizeof(sectors_toerase)/sizeof(physaddr_t))-1))){
+            do {
+                otp_done = sectrue;
+                /* write and lock OTP block 0 */
+                flash_write_otp_block(curr_otp_pos, &data[0], 4);
+                /* the b.x here can be faulted (FIA) , making the write otp or otp lock
+                 * failing. The flash_write and flash_lock must finish with a final
+                 * flash_read_otp_block(i) to be sure that the block is effectively written
+                 * (at least). */
+                flash_read_otp_block(curr_otp_pos, &check[0], 4);
+                if ((check[0] != data[0]) ||
+                        (check[1] != data[1]) ||
+                        (check[2] != data[2]) ||
+                        (check[3] != data[3])) {
+                    log_printf("corruption while setting flash OTP sector!!! FIA?\n");
+                    otp_done = secfalse;
+                }
+            } while (otp_done == secfalse);
+#if CONFIG_LOADER_EXTRA_DEBUG
+            log_printf("Mass erase: treating sector @0x%x (%d), locking OTP block %d\n",  sectors_toerase[i], i, curr_otp_pos);
+#endif
+            while(flash_lock_otp_block(curr_otp_pos)){};
+      }
 #endif
     }
 	return;
@@ -941,25 +1042,102 @@ t_flash_rdp_state flash_check_rdpstate(void)
     return FLASH_RDP_MEMPROTECT;
 }
 
-void flash_lock_bootloader(void)
+void flash_writelock_bootloader(void)
 {
     /* set write mode protection to write protect (not PCROP) */
-#ifdef STM32F429                /* STM32F42xxx/STM32F43xxx only */
+#if defined(CONFIG_STM32F439) || defined(CONFIG_STM32F429)			/* (only on f42xxx/43xxx) */
     set_reg(r_CORTEX_M_FLASH_OPTCR, 0x0, FLASH_OPTCR_SPRMOD);
 #endif
     /* lock bootloader and bootinfo write access on flashbank1 */
     set_reg(r_CORTEX_M_FLASH_OPTCR, 0xFFc, FLASH_OPTCR_nWRP);
 #if CONFIG_FIRMWARE_DUALBANK && CONFIG_USR_DRV_FLASH_2M
-# ifdef STM32F429                /* STM32F42xxx/STM32F43xxx only */
+#if defined(CONFIG_STM32F439) || defined(CONFIG_STM32F429)			/* RDERR (only on f42xxx/43xxx) */
     set_reg(r_CORTEX_M_FLASH_OPTCR1, 0x0, FLASH_OPTCR_SPRMOD);
 # endif
     set_reg(r_CORTEX_M_FLASH_OPTCR1, 0xFFc, FLASH_OPTCR_nWRP);
 #endif
 }
 
+void flash_writeunlock_bootloader(void)
+{
+    /* unset write mode protection to write protect (not PCROP) */
+#if defined(CONFIG_STM32F439) || defined(CONFIG_STM32F429)			/* (only on f42xxx/43xxx) */
+    set_reg(r_CORTEX_M_FLASH_OPTCR, 0x0, FLASH_OPTCR_SPRMOD);
+#endif
+    /* unlock bootloader and bootinfo write access on flashbank1 */
+    set_reg(r_CORTEX_M_FLASH_OPTCR, 0xFFF, FLASH_OPTCR_nWRP);
+#if CONFIG_FIRMWARE_DUALBANK && CONFIG_USR_DRV_FLASH_2M
+#if defined(CONFIG_STM32F439) || defined(CONFIG_STM32F429)			/* (only on f42xxx/43xxx) */
+    set_reg(r_CORTEX_M_FLASH_OPTCR1, 0x0, FLASH_OPTCR_SPRMOD);
+# endif
+    set_reg(r_CORTEX_M_FLASH_OPTCR1, 0xFFF, FLASH_OPTCR_nWRP);
+#endif
 
+}
+
+/************ OTP related functions ***************************/
+
+#if defined(CONFIG_LOADER_EMULATE_OTP)
+/* OTP emulation mode */
 int flash_lock_otp_block(uint8_t block_id)
 {
+    /* We only have 16 OTP blocks */
+    if (block_id >= 16) {
+        return 1;
+    }
+    uint8_t *lock_block = (uint8_t*)otp_emulation_lock;
+    /* set corresponding OTP lock byte by setting 0x00 to it */
+    lock_block[block_id] = 0x00;
+    return 0;
+}
+
+int flash_read_otp_block(uint8_t block_id, uint32_t *data, uint32_t data_len)
+{
+    uint32_t *otp_block;
+    if (block_id >= 16) {
+        return 1;
+    }
+    if (data == NULL) {
+        return 2;
+    }
+    if (data_len > 8) {
+        /* OTP blocks are of maximum 32 bytes (i.e. 8 32-bit words) */
+        return 3;
+    }
+    otp_block = &(otp_emulation_otp[8 * block_id]);
+
+    for (uint8_t i = 0; i < data_len; ++i) {
+        data[i] = otp_block[i];
+    }
+    return 0;
+}
+
+int flash_write_otp_block(uint8_t block_id, uint32_t *data, uint32_t data_len)
+{
+    if (block_id >= 16) {
+        return 1;
+    }
+    if (data == NULL) {
+        return 2;
+    }
+    if (data_len > 8 || data_len < 1) {
+        /* An OTP block is 32 bytes long (i.e. 8 uint32_t words) */
+        return 3;
+    }
+    uint32_t *otp_block = NULL;
+    otp_block = &(otp_emulation_otp[8 * block_id]);
+    /* set corresponding OTP lock byte */
+    for (uint8_t i = 0; i < data_len; ++i) {
+	otp_block[i] = data[i];
+    }
+    return 0;
+}
+
+#else
+/* Not in OTP emulation mode */
+int flash_lock_otp_block(uint8_t block_id)
+{
+    /* We only have 16 OTP blocks */
     if (block_id >= 16) {
         return 1;
     }
@@ -968,12 +1146,12 @@ int flash_lock_otp_block(uint8_t block_id)
         return 1;
     }
     /* 1 byte parallelism */
-	set_reg(r_CORTEX_M_FLASH_CR, 0x00, FLASH_CR_PSIZE);
+    set_reg(r_CORTEX_M_FLASH_CR, 0x00, FLASH_CR_PSIZE);
     /* programming mode */
-	set_reg(r_CORTEX_M_FLASH_CR, 1, FLASH_CR_PG);
+    set_reg(r_CORTEX_M_FLASH_CR, 1, FLASH_CR_PG);
 
     uint8_t *lock_block = FLASH_OTP_LOCK_BLOCK;
-    /* set corresponding OTP lock byte */
+    /* set corresponding OTP lock byte by setting 0x00 to it */
     lock_block[block_id] = 0x00;
     flash_busy_wait();
     return 0;
@@ -988,7 +1166,8 @@ int flash_read_otp_block(uint8_t block_id, uint32_t *data, uint32_t data_len)
     if (data == NULL) {
         return 2;
     }
-    if (data_len > 4) {
+    if (data_len > 8) {
+        /* OTP blocks are of maximum 32 bytes (i.e. 8 32-bit words) */
         return 3;
     }
     flash_busy_wait();
@@ -1059,7 +1238,8 @@ int flash_write_otp_block(uint8_t block_id, uint32_t *data, uint32_t data_len)
     if (data == NULL) {
         return 2;
     }
-    if (data_len > 4 || data_len < 1) {
+    if (data_len > 8 || data_len < 1) {
+        /* An OTP block is 32 bytes long (i.e. 8 uint32_t words) */
         return 3;
     }
     flash_busy_wait();
@@ -1067,9 +1247,9 @@ int flash_write_otp_block(uint8_t block_id, uint32_t *data, uint32_t data_len)
         return 4;
     }
     /* 32 bits parallelism */
-	set_reg(r_CORTEX_M_FLASH_CR, 0x10, FLASH_CR_PSIZE);
+    set_reg(r_CORTEX_M_FLASH_CR, 0x10, FLASH_CR_PSIZE);
     /* programming mode */
-	set_reg(r_CORTEX_M_FLASH_CR, 1, FLASH_CR_PG);
+    set_reg(r_CORTEX_M_FLASH_CR, 1, FLASH_CR_PG);
     uint32_t *otp_block = NULL;
     switch (block_id) {
         case 0:
@@ -1125,9 +1305,8 @@ int flash_write_otp_block(uint8_t block_id, uint32_t *data, uint32_t data_len)
     }
     /* set corresponding OTP lock byte */
     for (uint8_t i = 0; i < data_len; ++i) {
-        /* 128 bytes to write */
-        otp_block[i] = data[i];
-        flash_busy_wait();
+	flash_program(&(otp_block[i]), data[i], 2);
     }
     return 0;
 }
+#endif

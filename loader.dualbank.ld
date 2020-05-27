@@ -106,7 +106,14 @@ SECTIONS
     . = ALIGN(4);
     _ebss = .;         /* define a global symbol at bss end */
     __bss_end__ = _ebss;
-  } >RAM_USER
+  } >RAM_USER AT >RAM_USER
+
+  /* Uninitialized data section with explicit no zero init */
+  . = ALIGN(4);
+  ._non_zero_bss :
+  { 
+    *(.nonzerobss)
+  } >RAM_USER AT >RAM_USER
 
     /* User_heap_stack section, used to check that there is enough RAM left */
   ._user_heap_stack :
@@ -116,7 +123,7 @@ SECTIONS
     PROVIDE ( _end = . );
     . = . + 4096;
     . = ALIGN(4);
-  } >RAM_USER
+  } >RAM_USER AT >RAM_USER
 
   /* Remove information from the standard libraries */
   /DISCARD/ :
