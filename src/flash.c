@@ -144,7 +144,7 @@ static uint32_t otp_default_value = 0xffffffff;
 static uint8_t otp_lock_default_value = 0xff;
 #endif
 
-#define FLASH_DEBUG 1
+#define FLASH_DEBUG 0
 
 /* Primitive for debug output */
 #if FLASH_DEBUG
