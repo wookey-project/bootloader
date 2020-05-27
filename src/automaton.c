@@ -22,8 +22,13 @@
  *
  */
 #include "autoconf.h"
+#include "soc-rng.h"
 #include "automaton.h"
+#include "hash.h"
 #include "main.h"
+
+volatile uint64_t controlflow;
+volatile uint64_t currentflow;
 
 
 /*
@@ -227,6 +232,28 @@ static const struct {
      },
 };
 
+/*
+ * control flow sequence that must be respected by the automaton
+ */
+#define LOADER_CONTROLFLOW_LENGTH 14
+
+static const uint32_t loader_controlflow[] = {
+    LOADER_START,
+    LOADER_INIT,
+    LOADER_RDPCHECK,
+    LOADER_DFUWAIT,
+    LOADER_RDPCHECK,
+    LOADER_SELECTBANK,
+    LOADER_RDPCHECK,
+    LOADER_HDRCRC,
+    LOADER_RDPCHECK,
+    LOADER_FWINTEGRITY,
+    LOADER_RDPCHECK,
+    LOADER_FLASHLOCK,
+    LOADER_RDPCHECK,
+    LOADER_BOOTFW,
+};
+
 /**********************************************
  * loader getters and setters
  *********************************************/
@@ -236,6 +263,99 @@ loader_state_t loader_get_state(void)
     return state;
 }
 
+
+void loader_init_controlflow(void)
+{
+    union u_controlflow {
+        volatile uint64_t *cf64;
+        volatile uint32_t *cf32;
+    };
+    union u_controlflow cf_init;
+    cf_init.cf64 = &controlflow;
+
+    /* set the all 64 bits of the controlflow variable */
+    soc_get_random(&(cf_init.cf32[0]));
+    soc_get_random(&(cf_init.cf32[1]));
+
+#if CONFIG_LOADER_EXTRA_DEBUG
+    dbg_log("initialize controlflow to (long long) %ll\n", controlflow);
+    dbg_flush();
+#endif
+    /* depending on the value of controlflow at start, the value of the
+     * successive calculation of currentflow may generate an uint64_t overflow,
+     * but this is not a problem, because the value itself means nothing while
+     * the two calculated values are the same. If FC detect the overflow, we
+     * cas set the MBS bits of controlflow to 0 to avoid any overflow risk. */
+    currentflow = controlflow;
+}
+
+static inline void update_controlflowvar(volatile uint64_t *var, uint32_t value)
+{
+    /* atomic local update of the control flow var.
+     * FIXME: addition is problematic because it does not ensure that
+     * previous states has been executed in the correct order, but only
+     * that they **all** have been executed. Though, as each state check for
+     * the control flow, the order is checked. Althgouh, a mathematical
+     * primitive ensuring variation (successive CRC ? other ?) would be better. */
+    *var += hash_state(value);
+
+}
+
+
+
+secbool loader_calculate_flowstate(loader_state_t prevstate,
+                                   loader_state_t nextstate)
+{
+    /*
+     * Here, we recalculate from scratch, based on the prevstate/nextstate pair
+     * (which **must** be unique) to current controlflow value.
+     * We use the flow control sequence set in .rodata to successively increment
+     * myflow up to the state pair we should be on.
+     * The caller function can then compare the result of this function with
+     * loader_update_flowstate(). If the results are the same, the control flow is
+     * keeped. If not, the control flow is corrupted.
+     */
+    /* 1. init myflow to seed */
+    uint8_t i = 0;
+    uint64_t myflow = (uint64_t)controlflow;
+    /* 2. starting to init state, for each state pairs different from current one, add
+     * first state of the pair to myflow */
+    for (i = 0; i < LOADER_CONTROLFLOW_LENGTH - 1; ++i) {
+        update_controlflowvar(&myflow, loader_controlflow[i]);
+        if (loader_controlflow[i] == prevstate && loader_controlflow[i + 1] == nextstate) {
+            break;
+        }
+    }
+    /* 3. found state pair ? add nextstate en return */
+    update_controlflowvar(&myflow, nextstate);
+
+#if CONFIG_LOADER_EXTRA_DEBUG
+    dbg_log("%s: result of online calculation (%d sequences) is (long long) %ll\n", __func__, i, myflow);
+    dbg_flush();
+#endif
+    /* TODO: how to harden u64 comparison ? */
+    if (myflow != currentflow) {
+        /* control flow error detected */
+        dbg_log("Error in control flow ! Fault injection detected !\n");
+        return secfalse;
+    }
+    return sectrue;
+}
+
+void loader_update_flowstate(loader_state_t nextstate)
+{
+    /* here, we update current flow in order to add the current state to the previous
+     * flow sequence, by adding its state value to the currentflow variable */
+    /* calculation may be more complex to avoid any collision risk. Is there a way
+     * through cryptographic calculation on state value concatenation to avoid any
+     * risk ? */
+    update_controlflowvar(&currentflow, nextstate);
+#if CONFIG_LOADER_EXTRA_DEBUG
+    dbg_log("%s: update controlflow to (long long) %ll\n", __func__, currentflow);
+    dbg_flush();
+#endif
+
+}
 
 /*
  * This function is eligible in both main thread and ISR

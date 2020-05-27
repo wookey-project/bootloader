@@ -38,6 +38,7 @@
 #include "soc-pwr.h"
 #include "soc-scb.h"
 #include "soc-rcc.h"
+#include "soc-rng.h"
 #include "debug.h"
 
 /*
@@ -90,4 +91,6 @@ void system_init(uint32_t addr)
 
     //set_vtor(FLASH_BASE|VECT_TAB_OFFSET);
     set_vtor(addr);
+
+    soc_rng_init();
 }

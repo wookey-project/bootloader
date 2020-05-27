@@ -50,6 +50,7 @@
 #include "soc-usart-regs.h"
 #include "soc-gpio.h"
 #include "soc-nvic.h"
+#include "soc-rng.h"
 #include "soc-rcc.h"
 #include "soc-interrupts.h"
 #include "boot_mode.h"
@@ -58,7 +59,6 @@
 #include "gpio.h"
 #include "types.h"
 #include "flash.h"
-#include "rng.h"
 #include "automaton.h"
 #include "soc-bkpsram.h"
 #include "soc-pwr.h"
@@ -160,10 +160,27 @@ extern const shr_vars_t flop_shared_vars;
  * Successive transition functions, each handling one given transition
  *************************************************************************/
 
+static inline loader_request_t invalid_controlflow_target(void)
+{
+#if CONFIG_LOADER_INVAL_CFLOW_GOTO_ERROR
+   return LOADER_REQ_ERROR;
+#elif CONFIG_LOADER_INVAL_CFLOW_GOTO_SECBREACH
+   return LOADER_REQ_SECBREACH;
+#else
+   /* defaulting */
+   return LOADER_REQ_SECBREACH;
+#endif
+}
+
 
 static loader_request_t loader_exec_req_init(loader_state_t nextstate)
 {
 
+    loader_state_t prevstate = loader_get_state();
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return invalid_controlflow_target();
+    }
     /* entering transition target state (here LOADER_INIT) */
     loader_set_state(nextstate);
 
@@ -191,6 +208,11 @@ static loader_request_t loader_exec_req_rdpcheck(loader_state_t nextstate)
 
     loader_request_t nextreq = LOADER_REQ_SECBREACH;
     loader_state_t prevstate = loader_get_state();
+
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return invalid_controlflow_target();
+    }
     /* entering RDPCHECK */
     loader_set_state(nextstate);
 
@@ -277,6 +299,12 @@ static loader_request_t loader_exec_req_rdpcheck(loader_state_t nextstate)
 
 static loader_request_t loader_exec_req_dfucheck(loader_state_t nextstate)
 {
+
+    loader_state_t prevstate = loader_get_state();
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return invalid_controlflow_target();
+    }
     loader_set_state(nextstate);
 
     /* the DFU support is only handled for Wookey board, which has both DFU
@@ -343,6 +371,12 @@ static loader_request_t loader_exec_req_dfucheck(loader_state_t nextstate)
 
 static loader_request_t loader_exec_req_selectbank(loader_state_t nextstate)
 {
+    loader_state_t prevstate = loader_get_state();
+
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return invalid_controlflow_target();
+    }
     loader_set_state(nextstate);
 
 
@@ -463,6 +497,12 @@ err:
 
 static loader_request_t loader_exec_req_crccheck(loader_state_t nextstate)
 {
+    loader_state_t prevstate = loader_get_state();
+
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return invalid_controlflow_target();
+    }
     loader_set_state(nextstate);
 
     {
@@ -528,6 +568,12 @@ err:
 
 static loader_request_t loader_exec_req_integritycheck(loader_state_t nextstate)
 {
+    loader_state_t prevstate = loader_get_state();
+
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return invalid_controlflow_target();
+    }
     loader_set_state(nextstate);
 
 #ifdef CONFIG_LOADER_FW_HASH_CHECK
@@ -564,6 +610,12 @@ err:
 static loader_request_t loader_exec_req_flashlock(loader_state_t nextstate)
 {
 
+    loader_state_t prevstate = loader_get_state();
+
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return invalid_controlflow_target();
+    }
     loader_set_state(nextstate);
 
     if (ctx.dfu_mode == sectrue) {
@@ -635,6 +687,12 @@ static void PVD_unconfigure(void);
 #endif
 static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
 {
+    loader_state_t prevstate = loader_get_state();
+
+    loader_update_flowstate(nextstate);
+    if (loader_calculate_flowstate(prevstate, nextstate) != sectrue) {
+        return invalid_controlflow_target();
+    }
     loader_set_state(nextstate);
 
     dbg_log("Geronimo !\n");
@@ -652,7 +710,7 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
         debug_release();
 
 #ifdef CONFIG_LOADER_USE_BKPSRAM
-	/* Cleanup Backup SRAM before booting 
+	/* Cleanup Backup SRAM before booting
 	 * This is *safe* since our ctx is in regular SRAM global variable
 	 * Note: our variables here are *static* to avoid messing with the stack ...
 	 */
@@ -660,13 +718,13 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
         static uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
         for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
             bkp_ptr[i] = 0;
-        } 
+        }
         for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
             bkp_ptr[i] = 0;
         }
 #endif
 #ifdef CONFIG_LOADER_USE_PVD
-	/* Clean our PVD configuration before booting the next stage 
+	/* Clean our PVD configuration before booting the next stage
 	 * as we do not know if it will clean stuff.
 	 */
 	PVD_unconfigure();
@@ -782,7 +840,7 @@ static void PVD_configuration(void)
 	set_reg_bits(r_CORTEX_M_RCC_APB1ENR, RCC_APB1ENR_PWREN);
 	/* Activate the PVD IRQ */
 	NVIC_EnableIRQ(PVD_IRQ - 0x10);
-	/* Configure EXTI line 16 (PVD output) to generate interrupts on 
+	/* Configure EXTI line 16 (PVD output) to generate interrupts on
 	 * rising and falling edges of PVD
 	 */
         /* Enable the interrupt line in EXTI_IMR */
@@ -824,7 +882,7 @@ static void PVD_unconfigure(void)
 void PVD_handler(void)
 {
 	NVIC_ClearPendingIRQ(PVD_IRQ);
-	/* We have detected a Vcc glitch/problem here ... Reset! 
+	/* We have detected a Vcc glitch/problem here ... Reset!
 	 * See above for the rationale of resetting instead of mass erase ...
 	 */
 	NVIC_SystemReset();
@@ -894,7 +952,7 @@ int main(void)
        do {
 	flash_mass_erase();
        } while(1);
-    } 
+    }
 #endif
 
 #ifdef CONFIG_LOADER_USE_BKPSRAM
@@ -906,10 +964,10 @@ int main(void)
     uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
     for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
         bkp_ptr[i] = 0;
-    } 
+    }
     for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
         bkp_ptr[i] = 0;
-    } 
+    }
 
     /* Now we pivot our stack pointer to the Backup SRAM:
      * the rationale is that this SRAM is not accessible in
@@ -918,7 +976,7 @@ int main(void)
      * We use a static local variables to avoid messing too much
      * with the stack.
      */
-    static uint32_t sp = (BKPSRAM_BASE + BKPSRAM_SIZE); 
+    static uint32_t sp = (BKPSRAM_BASE + BKPSRAM_SIZE);
     __asm__ volatile ("mov sp, %0" :: "r" (sp) :);
     __asm__ volatile ("isb");
     __asm__ volatile ("dsb");
@@ -929,11 +987,17 @@ int main(void)
 #endif
 
     /* Initialize the stack guard */
-    if(rng_manager((uint32_t*)&__stack_chk_guard)){
+    if(soc_get_random((uint32_t*)&__stack_chk_guard)){
         panic("Failed to init stack guard with RNG!");
         goto err;
     }
+    /* init control flow seed */
+    loader_init_controlflow();
+
+    /* init first state */
     loader_set_state(LOADER_START);
+    loader_update_flowstate(LOADER_START);
+
     loader_request_t initial_req = LOADER_REQ_INIT;
 
     loader_exec_automaton(initial_req);

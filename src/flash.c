@@ -43,7 +43,7 @@
 #include "regutils.h"
 #include "flash_regs.h"
 #include "libc.h"
-#include "rng.h"
+#include "soc-rng.h"
 #include "debug.h"
 
 const physaddr_t sectors_toerase[] = {
@@ -600,16 +600,16 @@ void flash_mass_erase(void)
     secbool otp_done = secfalse;
 
     data[0] = 0xDEADCAFE;
-    rng_manager((uint32_t*)&data[1]);
+    soc_get_random((volatile uint32_t*)&data[1]);
     data[2] = 0xCACACACA;
-    rng_manager((uint32_t*)&data[3]);
+    soc_get_random((volatile uint32_t*)&data[3]);
 #endif
 
 #if CONFIG_LOADER_EXTRA_DEBUG
     log_printf("Mass erase: unlocking flash for Bank1, Bank2 and Bootloader\n");
 #endif
     /* First things first, we write unlock everything that could be locked
-     * in order to avoid errors when erasing. 
+     * in order to avoid errors when erasing.
      */
     flash_unlock_opt();
     flash_writeunlock_bank1();
@@ -651,8 +651,8 @@ void flash_mass_erase(void)
                     /* already erased, continue */
                     check[0] = 0;
                     check[2] = 0;
-                    rng_manager((uint32_t*)&check[0]);
-                    rng_manager((uint32_t*)&check[2]);
+                    soc_get_random((volatile uint32_t*)&check[0]);
+                    soc_get_random((volatile uint32_t*)&check[2]);
 #if CONFIG_LOADER_EXTRA_DEBUG
   		    log_printf("Mass erase: skipping already treated sector @0x%x (%d)\n", sectors_toerase[i], i);
 #endif

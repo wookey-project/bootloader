@@ -90,7 +90,6 @@ config LOADER_FLASH_RDP_CHECK
       Check if the RDP protection flag is active at boot.
       If RDP protection is not active, then reset the board.
 
-
 config LOADER_ERASE_ON_SECBREACH
    bool "Erase flash on Security breach detection"
    default y
@@ -135,5 +134,20 @@ config LOADER_USE_PVD
    ---help---
       Use the STM32 Power Voltage Detection to try to detect voltage or EM
       glitches.
+
+choice
+  prompt "loader behavior on invalid control flow detection"
+  default LOADER_INVAL_CFLOW_GOTO_ERROR
+    config LOADER_INVAL_CFLOW_GOTO_ERROR
+      bool "Error state on invalid control flow"
+      ---help---
+      Goto error state on invalid control flow detection.
+      Usually generates a reset or hang the execution.
+    config LOADER_INVAL_CFLOW_GOTO_SECBREACH
+      bool "Security breach state on invalid control flow"
+      ---help---
+      Goto secbreach state on invalid control flow detection.
+      May generate upto the flash memory erase.
+endchoice
 
 endmenu

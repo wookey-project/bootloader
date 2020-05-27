@@ -47,6 +47,34 @@
 # pragma GCC optimize("O0")
 #endif
 #endif
+
+uint64_t hash_state(uint64_t val)
+{
+    sha256_context sha256_ctx;
+    uint8_t digest[SHA256_DIGEST_SIZE];
+    union u_digest {
+        uint64_t *u64;
+        uint8_t  *digest;
+    };
+
+    sha256_init(&sha256_ctx);
+    uint64_t to_hash;
+
+    /* make val a big endian value */
+    to_hash = to_big32((uint32_t)val);
+    to_hash |= (32 << to_big32((uint32_t)(val >> 32)));
+
+    sha256_update(&sha256_ctx, (uint8_t*)&to_hash, sizeof(to_hash));
+
+    sha256_final(&sha256_ctx, digest);
+
+    /* truncate the result to an uint64_t */
+    union u_digest result;
+    result.digest = &(digest[0]);
+
+    return *(result.u64);
+}
+
 secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, uint32_t partition_size)
 {
     sha256_context sha256_ctx;

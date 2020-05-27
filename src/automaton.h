@@ -81,4 +81,11 @@ loader_state_t loader_next_state(const loader_state_t current_state,
 secbool        loader_is_valid_transition(const loader_state_t current_state,
                                           const loader_request_t request);
 
+void loader_init_controlflow(void);
+
+void loader_update_flowstate(loader_state_t nextstate);
+
+secbool loader_calculate_flowstate(loader_state_t prevstate,
+                                   loader_state_t nextstate);
+
 #endif /*!LOADER_AUTOMATON_H_ */
