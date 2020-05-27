@@ -282,7 +282,9 @@ void flash_writeunlock_bank2(void);
 
 t_flash_rdp_state flash_check_rdpstate(void);
 
-void flash_lock_bootloader(void);
+void flash_writelock_bootloader(void);
+
+void flash_writeunlock_bootloader(void);
 
 int flash_read_otp_block(uint8_t block_id, uint32_t *data, uint32_t data_len);
 

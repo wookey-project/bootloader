@@ -167,19 +167,6 @@ static loader_request_t loader_exec_req_init(loader_state_t nextstate)
     /* entering transition target state (here LOADER_INIT) */
     loader_set_state(nextstate);
 
-    /* and execute transition */
-    disable_irq();
-    core_systick_init();
-    // button now managed at kernel boot to detect if DFU mode
-    debug_console_init();
-
-    /* self protecting own code write access */
-    flash_unlock_opt();
-    flash_lock_bootloader();
-    flash_lock_opt();
-
-    enable_irq();
-
     dbg_log("======= Wookey Loader ========\n");
     dbg_log("Built date\t: %s at %s\n", __DATE__, __TIME__);
 #if defined(CONFIG_STM32F429)
@@ -873,9 +860,28 @@ void __stack_chk_fail(void)
     while (1) {};
 }
 
+/* Very basic initialization (clocks, console, etc.) */
+void loader_basic_init(void)
+{
+    disable_irq();
+    core_systick_init();
+    // button now managed at kernel boot to detect if DFU mode
+    debug_console_init();
+
+    /* self protecting own code write access */
+    flash_unlock_opt();
+    flash_writelock_bootloader();
+    flash_lock_opt();
+
+    enable_irq();
+}
+
 int main(void)
 {
     system_init((uint32_t) LDR_BASE);
+
+    /* Basic init */
+    loader_basic_init();
 
 #ifdef CONFIG_LOADER_ERASE_WITH_RECOVERY
     /* Check if a mass erase was ongoing ... */
@@ -889,7 +895,6 @@ int main(void)
 	flash_mass_erase();
        } while(1);
     } 
-
 #endif
 
 #ifdef CONFIG_LOADER_USE_BKPSRAM

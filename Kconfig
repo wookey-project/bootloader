@@ -108,7 +108,19 @@ config LOADER_ERASE_WITH_RECOVERY
      flash erase continuation at bootup, using One Time Programable flash blocks
      to handle current erase state.
 
+if LOADER_ERASE_WITH_RECOVERY
+
+config LOADER_EMULATE_OTP
+   bool "Emulate OTP"
+   default n
+   ---help---
+     OTP in emulation mode, meaning that they are never "locked". This is useful to
+     "debug" the mass erase feature, but this must not be selected in production mode!
+
 endif
+
+endif
+
 
 config LOADER_USE_BKPSRAM
    bool "Use the Backup SRAM"

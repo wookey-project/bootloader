@@ -116,6 +116,7 @@ $(APP_BUILD_DIR)/$(ELF_NAME): $(OBJ) $(ARCH_OBJ) $(SOC_OBJ) $(SOCASM_OBJ)
 	$(call if_changed,link_o_target)
 
 # HEX
+CROSS_OBJCOPY_ARGS="--remove-section=._non_zero_bss"
 $(APP_BUILD_DIR)/$(HEX_NAME): $(APP_BUILD_DIR)/$(ELF_NAME)
 	$(call if_changed,objcopy_ihex)
 
