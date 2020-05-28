@@ -24,7 +24,11 @@ CFLAGS += -O0 # required by hardened programing
 ifeq ($(CONFIG_LOADER_USE_BKPSRAM),y)
 # Add this safe guard when using backup SRAM to
 # detect when we overflow it.
+ifeq ($(CONFIG_LOADER_EMULATE_OTP),y)
+CFLAGS += -Wstack-usage=3568
+else
 CFLAGS += -Wstack-usage=4096
+endif
 endif
 
 ifeq ($(CONFIG_USR_DRV_FLASH_DUAL_BANK),y)

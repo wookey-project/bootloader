@@ -108,13 +108,6 @@ SECTIONS
     __bss_end__ = _ebss;
   } >RAM_USER AT >RAM_USER
 
-  /* Uninitialized data section with explicit no zero init */
-  . = ALIGN(4);
-  ._non_zero_bss :
-  { 
-    *(.nonzerobss)
-  } >RAM_USER AT >RAM_USER
-
     /* User_heap_stack section, used to check that there is enough RAM left */
   ._user_heap_stack :
   {
@@ -124,6 +117,12 @@ SECTIONS
     . = . + 4096;
     . = ALIGN(4);
   } >RAM_USER AT >RAM_USER
+
+  /* Uninitialized data section with explicit no zero init */
+  ._non_zero_bss :
+  { 
+    *(.nonzerobss)
+  } >BKP_SRAM AT >BKP_SRAM
 
   /* Remove information from the standard libraries */
   /DISCARD/ :

@@ -126,20 +126,10 @@ const physaddr_t sectors_toerase_end[] = {
 /* Emulate OTP with SRAM value */
 __attribute__((section(".nonzerobss"))) static uint32_t otp_emulation_otp[512/sizeof(uint32_t)];
 __attribute__((section(".nonzerobss"))) static uint8_t otp_emulation_lock[16];
-/* NOTE: default values at (cold) reset in SRAM on STM32F4 are 0xaa */
-static uint32_t otp_default_value = 0xaaaaaaaa;
-static uint8_t otp_lock_default_value = 0xaa;
+#endif
 
-static inline void otp_emulation_reset(void)
-{
-    	for (uint8_t i = 0; i < (512/sizeof(uint32_t)); ++i) {
-		otp_emulation_otp[i] = otp_default_value;
-	}
-    	for (uint8_t i = 0; i < 16; ++i) {
-		otp_emulation_lock[i] = otp_lock_default_value;
-	}
-}
-#else
+#ifdef CONFIG_LOADER_ERASE_WITH_RECOVERY
+/* Default values for OTP */
 static uint32_t otp_default_value = 0xffffffff;
 static uint8_t otp_lock_default_value = 0xff;
 #endif
@@ -599,6 +589,7 @@ void flash_mass_erase(void)
     uint32_t check[4];
     secbool otp_done = secfalse;
 
+    uint8_t curr_otp_pos = 0;
     data[0] = 0xDEADCAFE;
     soc_get_random((volatile uint32_t*)&data[1]);
     data[2] = 0xCACACACA;
@@ -617,7 +608,6 @@ void flash_mass_erase(void)
     flash_writeunlock_bootloader();
     flash_lock_opt();
 
-    uint8_t curr_otp_pos = 0;
     for (uint8_t i = 0; i < (sizeof(sectors_toerase)/sizeof(physaddr_t)); ++i) {
 #if CONFIG_LOADER_EXTRA_DEBUG
         log_printf("Mass erase: treating sector @0x%x (%d)\n", sectors_toerase[i], i);

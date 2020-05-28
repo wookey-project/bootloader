@@ -81,6 +81,12 @@ app_entry_t fw2_main = (app_entry_t) (FW2_START);
 app_entry_t dfu2_main = (app_entry_t) (DFU2_START);
 #endif
 
+#if defined(CONFIG_LOADER_EMULATE_OTP)
+#define BKPSRAM_EMULATE_OTP_SIZE 528
+#else
+#define BKPSRAM_EMULATE_OTP_SIZE 0 
+#endif
+
 /*
  * definition and declaration of the loader context
  */
@@ -716,10 +722,10 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
 	 */
         static unsigned int i;
         static uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
-        for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
+        for(i = (BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)); i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
             bkp_ptr[i] = 0;
         }
-        for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
+        for(i = (BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)); i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
             bkp_ptr[i] = 0;
         }
 #endif
@@ -754,7 +760,9 @@ static loader_request_t loader_exec_secbreach(loader_state_t state)
     /*In case of security breach, we may react differently before reseting */
     /* let's lock both flash bank*/
 #if CONFIG_LOADER_ERASE_ON_SECBREACH
-    flash_mass_erase();
+    do {
+        flash_mass_erase();
+    } while(1);
 #endif
     NVIC_SystemReset();
     while (1);
@@ -940,6 +948,18 @@ int main(void)
 
     /* Basic init */
     loader_basic_init();
+#if defined(CONFIG_LOADER_USE_BKPSRAM) || defined(CONFIG_LOADER_EMULATE_OTP)
+    /* Initialize our Backup SRAM */
+    bkpsram_init();
+    /** First boot or not? */
+    unsigned int i;
+    uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
+    if(bkp_ptr[(BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)) - 1] != 0xffffffff){
+        for(i = 0; i < (BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)); i++){
+            bkp_ptr[i] = 0xffffffff;
+        }
+    }
+#endif
 
 #ifdef CONFIG_LOADER_ERASE_WITH_RECOVERY
     /* Check if a mass erase was ongoing ... */
@@ -955,17 +975,13 @@ int main(void)
     }
 #endif
 
-#ifdef CONFIG_LOADER_USE_BKPSRAM
-    /* Initialize our Backup SRAM */
-    bkpsram_init();
-
+#if defined(CONFIG_LOADER_USE_BKPSRAM)
     /* Clean the Backup SRAM from potential previous data */
-    unsigned int i;
-    uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
-    for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
+    bkp_ptr = (uint32_t*)BKPSRAM_BASE;
+    for(i = (BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)); i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
         bkp_ptr[i] = 0;
     }
-    for(i = 0; i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
+    for(i = (BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)); i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
         bkp_ptr[i] = 0;
     }
 
