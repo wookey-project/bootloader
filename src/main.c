@@ -951,10 +951,13 @@ int main(void)
 #if defined(CONFIG_LOADER_USE_BKPSRAM) || defined(CONFIG_LOADER_EMULATE_OTP)
     /* Initialize our Backup SRAM */
     bkpsram_init();
+#endif
+
+#if defined(CONFIG_LOADER_EMULATE_OTP)
     /** First boot or not? */
     unsigned int i;
     uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
-    if(bkp_ptr[(BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)) - 1] != 0xffffffff){
+    if(((BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)) > 0) && (bkp_ptr[(BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)) - 1] != 0xffffffff)){
         for(i = 0; i < (BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)); i++){
             bkp_ptr[i] = 0xffffffff;
         }
