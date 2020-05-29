@@ -36,18 +36,6 @@
 #include "debug.h"
 #include "main.h"
 
-# ifdef CONFIG_LOADER_FW_HASH_CHECK
-
-/* NOTE: O0 for fault attacks protections */
-#ifdef __GNUC__
-#ifdef __clang__
-# pragma clang optimize off
-#else
-# pragma GCC push_options
-# pragma GCC optimize("O0")
-#endif
-#endif
-
 uint64_t hash_state(uint64_t val)
 {
     sha256_context sha256_ctx;
@@ -74,6 +62,19 @@ uint64_t hash_state(uint64_t val)
 
     return *(result.u64);
 }
+
+
+# ifdef CONFIG_LOADER_FW_HASH_CHECK
+
+/* NOTE: O0 for fault attacks protections */
+#ifdef __GNUC__
+#ifdef __clang__
+# pragma clang optimize off
+#else
+# pragma GCC push_options
+# pragma GCC optimize("O0")
+#endif
+#endif
 
 secbool check_fw_hash(const t_firmware_state *fw, uint32_t partition_base_addr, uint32_t partition_size)
 {
