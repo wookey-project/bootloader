@@ -84,7 +84,7 @@ app_entry_t dfu2_main = (app_entry_t) (DFU2_START);
 #if defined(CONFIG_LOADER_EMULATE_OTP)
 #define BKPSRAM_EMULATE_OTP_SIZE 528
 #else
-#define BKPSRAM_EMULATE_OTP_SIZE 0 
+#define BKPSRAM_EMULATE_OTP_SIZE 0
 #endif
 
 /*
@@ -950,13 +950,13 @@ int main(void)
     loader_basic_init();
 #if defined(CONFIG_LOADER_USE_BKPSRAM) || defined(CONFIG_LOADER_EMULATE_OTP)
     /* Initialize our Backup SRAM */
+    uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
+    unsigned int i;
     bkpsram_init();
 #endif
 
 #if defined(CONFIG_LOADER_EMULATE_OTP)
     /** First boot or not? */
-    unsigned int i;
-    uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
     if(((BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)) > 0) && (bkp_ptr[(BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)) - 1] != 0xffffffff)){
         for(i = 0; i < (BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)); i++){
             bkp_ptr[i] = 0xffffffff;
