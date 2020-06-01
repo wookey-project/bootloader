@@ -50,6 +50,14 @@ config LOADER_EXTRA_DEBUG
   Print extra debugging information on the serial console, like
   automaton states and transitions
 
+config LOADER_ALLOW_SERIAL_RX
+  bool "Enable loader RX line IRQ (debug purpose)"
+  default n
+  ---help---
+  Allow the RX line to be used in the loader. This is by default
+  disabled for security reasons: you can activate it for debug
+  purposes.
+
 endif
 
 config LOADER_MOCKUP
