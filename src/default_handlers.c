@@ -125,6 +125,23 @@ __ISR_HANDLER stack_frame_t *Default_SubHandler(stack_frame_t * stack_frame)
     }
 #endif
 
+#ifdef CONFIG_LOADER_ALLOW_SERIAL_RX
+#ifdef CONFIG_LOADER_CONSOLE_USART1
+    if (int_num == USART1_IRQ) {
+        USART1_IRQ_Handler(stack_frame);
+    }
+#endif
+#ifdef CONFIG_LOADER_CONSOLE_USART4
+    if (int_num == UART4_IRQ) {
+        UART4_IRQ_Handler(stack_frame);
+    }
+#endif
+#ifdef CONFIG_LOADER_CONSOLE_USART6
+    if (int_num == USART6_IRQ) {
+        USART6_IRQ_Handler(stack_frame);
+    }
+#endif
+#endif
     asm volatile
        ("mov r1, #0" ::: "r1");
 

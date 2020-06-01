@@ -73,6 +73,7 @@ void init_ring_buffer(void)
 }
 
 #ifdef CONFIG_LOADER_SERIAL
+#ifdef CONFIG_LOADER_ALLOW_SERIAL_RX
 void cb_console_data_received(void)
 {
     char c;
@@ -92,7 +93,7 @@ void cb_console_data_received(void)
         }
     }
 }
-
+#endif /* CONFIG_LOADER_ALLOW_SERIAL_RX */
 static usart_config_t console_config = { 0 };
 #endif
 
@@ -110,11 +111,21 @@ void debug_console_init(void)
     console_config.word_length = USART_CR1_M_8;
     console_config.stop_bits = USART_CR2_STOP_1BIT;
     console_config.parity = USART_CR1_PCE_DIS;
+#ifdef CONFIG_LOADER_ALLOW_SERIAL_RX
+    /* Enable both RX and TX */
     console_config.hw_flow_control = USART_CR3_CTSE_CTS_DIS | USART_CR3_RTSE_RTS_DIS;
     console_config.options_cr1 = USART_CR1_TE_EN | USART_CR1_RE_EN | USART_CR1_UE_EN;
     console_config.callback_data_received = cb_console_data_received;
     console_config.callback_usart_getc_ptr = &console_getc;
     console_config.callback_usart_putc_ptr = &console_putc;
+#else
+   /* Only enable TX, RX is not allowed */
+    console_config.hw_flow_control = USART_CR3_CTSE_CTS_DIS | USART_CR3_RTSE_RTS_DIS;
+    console_config.options_cr1 = USART_CR1_TE_EN | USART_CR1_UE_EN;
+    console_config.callback_data_received = NULL;
+    console_config.callback_usart_getc_ptr = &console_getc;
+    console_config.callback_usart_putc_ptr = &console_putc;
+#endif
 
     /* Initialize the USART related to the console */
     soc_usart_init(&console_config);

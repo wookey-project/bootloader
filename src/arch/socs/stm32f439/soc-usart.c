@@ -336,33 +336,6 @@ void soc_usart_init(usart_config_t * config)
     soc_usart_init_gpio(config);
     soc_usart_set_baudrate(config);
 
-    /* registering the handler */
-    /*
-    switch (config->usart) {
-      case 0:
-      case 1:
-        irq_handler_set(USART1_IRQ, USART1_IRQ_Handler, 0, ID_DEV_UNUSED);
-        break;
-      case 2:
-        irq_handler_set(USART2_IRQ, USART2_IRQ_Handler, 0, ID_DEV_UNUSED);
-        break;
-      case 3:
-        irq_handler_set(USART3_IRQ, USART3_IRQ_Handler, 0, ID_DEV_UNUSED);
-        break;
-      case 4:
-        irq_handler_set(UART4_IRQ, UART4_IRQ_Handler, 0, ID_DEV_UNUSED);
-        break;
-      case 5:
-        irq_handler_set(UART5_IRQ, UART5_IRQ_Handler, 0, ID_DEV_UNUSED);
-        break;
-      case 6:
-        irq_handler_set(USART6_IRQ, USART6_IRQ_Handler, 0, ID_DEV_UNUSED);
-        break;
-      default:
-        irq_handler_set(USART1_IRQ, USART1_IRQ_Handler, 0, ID_DEV_UNUSED);
-    }
-    */
-
     /* Control register 1 */
     set_reg(r_CORTEX_M_USART_CR1(config->usart), config->parity,
             USART_CONFIG_PARITY);
