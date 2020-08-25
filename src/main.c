@@ -108,7 +108,7 @@ static loader_ctx_t ctx = {
     .dfu_mode = secfalse,
     .boot_flip = secfalse,
 #ifdef CONFIG_FIRMWARE_DUALBANK
-    .boot_flop = false,
+    .boot_flop = secfalse,
 #endif
     .dfu_waitsec = 2,
     .fw = 0,
