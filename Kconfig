@@ -129,13 +129,6 @@ endif
 endif
 
 
-config LOADER_USE_BKPSRAM
-   bool "Use the Backup SRAM"
-   default y
-   ---help---
-      Use the STM32 backup SRAM to protect sensitive operations againt
-      RDP2 to RDP1 downgrade.
-
 config LOADER_USE_PVD
    bool "Use PVD (Power Voltage Detection) as defense in depth against glitches"
    default y

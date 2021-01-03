@@ -67,6 +67,12 @@
 #define COLOR_REVERSE "\033[7m"
 #define COLOR_REDBG   "\033[41m"
 
+/* Helpers to get our keybag memory addresses in flash */
+extern uint32_t *__noupgrade_auth_flash_start;
+extern uint32_t *__noupgrade_auth_flash_len;
+extern uint32_t *__noupgrade_dfu_flash_start;
+extern uint32_t *__noupgrade_dfu_flash_len;
+
 /**
  *  Ref DocID022708 Rev 4 p.141
  *  BX/BLX cause usageFault if bit[0] of Rm is O
@@ -710,12 +716,16 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
       && (ctx.next_stage != (app_entry_t)FW1_START) && (ctx.next_stage != (app_entry_t)FW2_START)){
         goto err;
     }
-
+    /* Sanity check on keybags sizes in flash (to avoid copy overflow) */
+    if(((uint32_t)&__noupgrade_auth_flash_len > (BKPSRAM_SIZE - sizeof(uint32_t))) ||
+       ((uint32_t)&__noupgrade_dfu_flash_len > (BKPSRAM_SIZE - sizeof(uint32_t)))) {
+        goto err;
+    }
+ 
     if (ctx.next_stage) {
         /* clear debug device if activated */
         debug_release();
 
-#ifdef CONFIG_LOADER_USE_BKPSRAM
 	/* Cleanup Backup SRAM before booting
 	 * This is *safe* since our ctx is in regular SRAM global variable
 	 * Note: our variables here are *static* to avoid messing with the stack ...
@@ -728,7 +738,25 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
         for(i = (BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)); i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
             bkp_ptr[i] = 0;
         }
-#endif
+        /* Now copy the appropriate keybag in SRAM */
+        static uint8_t *bkp_ptr_char = (uint8_t*)BKPSRAM_BASE;
+        static uint8_t *keybag_flash_start;
+        static uint32_t keybag_flash_len;
+        if (ctx.dfu_mode == sectrue){
+            keybag_flash_start = (uint8_t*)&__noupgrade_dfu_flash_start;
+            keybag_flash_len = (uint32_t)&__noupgrade_dfu_flash_len;
+        }
+        else if (ctx.dfu_mode == secfalse){
+            keybag_flash_start = (uint8_t*)&__noupgrade_auth_flash_start;
+            keybag_flash_len = (uint32_t)&__noupgrade_auth_flash_len;
+        }
+        else{
+            goto err;
+        }
+        for(i = 0; i < keybag_flash_len; i++){
+            bkp_ptr_char[i] = keybag_flash_start[i];
+        }
+
 #ifdef CONFIG_LOADER_USE_PVD
 	/* Clean our PVD configuration before booting the next stage
 	 * as we do not know if it will clean stuff.
@@ -948,12 +976,10 @@ int main(void)
 
     /* Basic init */
     loader_basic_init();
-#if defined(CONFIG_LOADER_USE_BKPSRAM) || defined(CONFIG_LOADER_EMULATE_OTP)
     /* Initialize our Backup SRAM */
     uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
     unsigned int i;
     bkpsram_init();
-#endif
 
 #if defined(CONFIG_LOADER_EMULATE_OTP)
     /** First boot or not? */
@@ -978,7 +1004,6 @@ int main(void)
     }
 #endif
 
-#if defined(CONFIG_LOADER_USE_BKPSRAM)
     /* Clean the Backup SRAM from potential previous data */
     bkp_ptr = (uint32_t*)BKPSRAM_BASE;
     for(i = (BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)); i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
@@ -999,7 +1024,6 @@ int main(void)
     __asm__ volatile ("mov sp, %0" :: "r" (sp) :);
     __asm__ volatile ("isb");
     __asm__ volatile ("dsb");
-#endif
 
 #ifdef CONFIG_LOADER_USE_PVD
     PVD_configuration();

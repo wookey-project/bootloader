@@ -15,6 +15,10 @@ MEMORY
   RAM_USER   (rx) : ORIGIN = 0x20000000, LENGTH = 0x00020000
   /* Backup SRAM, safe against RDP2->RDP1 downgrade  */
   BKP_SRAM   (rw) : ORIGIN = 0x40024000, LENGTH = 0x00001000
+  /* keybag storage, not upgradable through DFU */
+  NOUPGRADE_SIG  (r) : ORIGIN = 0x08102000, LENGTH = 4*1023
+  NOUPGRADE_DFU  (r) : ORIGIN = 0x08101000, LENGTH = 4*1023
+  NOUPGRADE_AUTH (r) : ORIGIN = 0x08100000, LENGTH = 4*1023
 }
 
 
@@ -126,4 +130,11 @@ SECTIONS
     *(.gnu.linkonce.armexidx.*)
   }
 
+  /* Helpers to get our keybag memory addresses */
+  __noupgrade_sig_flash_start = ORIGIN(NOUPGRADE_SIG);
+  __noupgrade_sig_flash_len = LENGTH(NOUPGRADE_SIG);
+  __noupgrade_dfu_flash_start = ORIGIN(NOUPGRADE_DFU);
+  __noupgrade_dfu_flash_len = LENGTH(NOUPGRADE_DFU);
+  __noupgrade_auth_flash_start = ORIGIN(NOUPGRADE_AUTH);
+  __noupgrade_auth_flash_len = LENGTH(NOUPGRADE_AUTH);
 }
