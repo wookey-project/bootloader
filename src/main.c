@@ -719,16 +719,19 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
       && (ctx.next_stage != (app_entry_t)FW1_START) && (ctx.next_stage != (app_entry_t)FW2_START)){
         goto err;
     }
+#if CONFIG_LOADER_HANDLE_BKPSRAM
     /* Sanity check on keybags sizes in flash (to avoid copy overflow) */
     if(((uint32_t)&__noupgrade_auth_flash_len > (BKPSRAM_SIZE - sizeof(uint32_t))) ||
        ((uint32_t)&__noupgrade_dfu_flash_len > (BKPSRAM_SIZE - sizeof(uint32_t)))) {
         goto err;
     }
- 
+#endif
+
     if (ctx.next_stage) {
         /* clear debug device if activated */
         debug_release();
 
+#if CONFIG_LOADER_HANDLE_BKPSRAM
 	/* Cleanup Backup SRAM before booting
 	 * This is *safe* since our ctx is in regular SRAM global variable
 	 * Note: our variables here are *static* to avoid messing with the stack ...
@@ -746,7 +749,7 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
         static uint8_t *keybag_flash_start;
         static uint32_t keybag_flash_len;
         static uint8_t *dfu_flash_key_iv_start = NULL;
-	static uint32_t dfu_flash_key_iv_len = 0; 
+	static uint32_t dfu_flash_key_iv_len = 0;
         if (ctx.dfu_mode == sectrue){
             keybag_flash_start = (uint8_t*)&__noupgrade_dfu_flash_start;
             keybag_flash_len = (uint32_t)&__noupgrade_dfu_flash_len;
@@ -770,6 +773,7 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
                 bkp_ptr_char[keybag_flash_len + i] = dfu_flash_key_iv_start[i];
             }
         }
+#endif
 
 #ifdef CONFIG_LOADER_USE_PVD
 	/* Clean our PVD configuration before booting the next stage

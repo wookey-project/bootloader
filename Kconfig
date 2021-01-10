@@ -129,6 +129,11 @@ endif
 endif
 
 
+config LOADER_HANDLE_BKPSRAM
+   bool "Handle Backup SRAM copy for firmware (security enhanced mechanism)"
+   default n
+
+
 config LOADER_USE_PVD
    bool "Use PVD (Power Voltage Detection) as defense in depth against glitches"
    default y
