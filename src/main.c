@@ -72,6 +72,9 @@ extern uint32_t *__noupgrade_auth_flash_start;
 extern uint32_t *__noupgrade_auth_flash_len;
 extern uint32_t *__noupgrade_dfu_flash_start;
 extern uint32_t *__noupgrade_dfu_flash_len;
+/* Helper to get our overencryption key */
+extern uint32_t *__noupgrade_dfu_flash_key_iv_start;
+extern uint32_t *__noupgrade_dfu_flash_key_iv_len;
 
 /**
  *  Ref DocID022708 Rev 4 p.141
@@ -742,9 +745,14 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
         static uint8_t *bkp_ptr_char = (uint8_t*)BKPSRAM_BASE;
         static uint8_t *keybag_flash_start;
         static uint32_t keybag_flash_len;
+        static uint8_t *dfu_flash_key_iv_start = NULL;
+	static uint32_t dfu_flash_key_iv_len = 0; 
         if (ctx.dfu_mode == sectrue){
             keybag_flash_start = (uint8_t*)&__noupgrade_dfu_flash_start;
             keybag_flash_len = (uint32_t)&__noupgrade_dfu_flash_len;
+            /* In DFU mode, we also copy our flash over-encryption key */
+            dfu_flash_key_iv_start = (uint8_t*)&__noupgrade_dfu_flash_key_iv_start;
+            dfu_flash_key_iv_len = (uint32_t)&__noupgrade_dfu_flash_key_iv_len;
         }
         else if (ctx.dfu_mode == secfalse){
             keybag_flash_start = (uint8_t*)&__noupgrade_auth_flash_start;
@@ -755,6 +763,12 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
         }
         for(i = 0; i < keybag_flash_len; i++){
             bkp_ptr_char[i] = keybag_flash_start[i];
+        }
+        /* Copy flash over-encryption key if necessary */
+        if(dfu_flash_key_iv_start != NULL){
+            for(i = 0; i < dfu_flash_key_iv_len; i++){
+                bkp_ptr_char[keybag_flash_len + i] = dfu_flash_key_iv_start[i];
+            }
         }
 
 #ifdef CONFIG_LOADER_USE_PVD

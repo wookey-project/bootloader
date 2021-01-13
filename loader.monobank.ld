@@ -16,9 +16,11 @@ MEMORY
   /* Backup SRAM, safe against RDP2->RDP1 downgrade  */
   BKP_SRAM   (rw) : ORIGIN = 0x40024000, LENGTH = 0x00001000
   /* keybag storage, not upgradable through DFU */
-  NOUPGRADE_SIG  (r) : ORIGIN = 0x08102000, LENGTH = 4*1023
-  NOUPGRADE_DFU  (r) : ORIGIN = 0x08101000, LENGTH = 4*1023
-  NOUPGRADE_AUTH (r) : ORIGIN = 0x08100000, LENGTH = 4*1023
+  NOUPGRADE_SIG  (r) : ORIGIN = 0x08100800, LENGTH = 1024
+  NOUPGRADE_DFU  (r) : ORIGIN = 0x08100400, LENGTH = 1024
+  NOUPGRADE_AUTH (r) : ORIGIN = 0x08100000, LENGTH = 1024
+  /* Flash over-encryption key */
+  NOUPGRADE_DFU_FLASH_KEY_IV (r) :  ORIGIN = 0x08100c00, LENGTH = 1024
 }
 
 
@@ -137,4 +139,7 @@ SECTIONS
   __noupgrade_dfu_flash_len = LENGTH(NOUPGRADE_DFU);
   __noupgrade_auth_flash_start = ORIGIN(NOUPGRADE_AUTH);
   __noupgrade_auth_flash_len = LENGTH(NOUPGRADE_AUTH);
+  /* Flash over-encryption key */
+  __noupgrade_dfu_flash_key_iv_start = ORIGIN(NOUPGRADE_DFU_FLASH_KEY_IV);
+  __noupgrade_dfu_flash_key_iv_len = LENGTH(NOUPGRADE_DFU_FLASH_KEY_IV);
 }
