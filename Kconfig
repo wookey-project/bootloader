@@ -119,6 +119,8 @@ if LOADER_ERASE_WITH_RECOVERY
 
 config LOADER_EMULATE_OTP
    bool "Emulate OTP"
+   depends on !LOADER_BSRAM_KEYBAG_AUTH && !LOADER_BSRAM_KEYBAG_DFU && !LOADER_BSRAM_FLASH_KEY
+   depends on !FIRMWARE_BUILD_MODE_PROD
    default n
    ---help---
      OTP in emulation mode, meaning that they are never "locked". This is useful to
@@ -128,10 +130,27 @@ endif
 
 endif
 
+config LOADER_BSRAM_KEYBAG_AUTH
+   bool "Use Backup SRAM for AUTH keybag (security enhanced mechanism)"
+   default y
+   ---help---
+     Use the Backup SRAM to copy the AUTH keybag. This improves security
+     over keeping plain keys in the firmware update.
 
-config LOADER_HANDLE_BKPSRAM
-   bool "Handle Backup SRAM copy for firmware (security enhanced mechanism)"
-   default n
+config LOADER_BSRAM_KEYBAG_DFU
+   bool "Use Backup SRAM for DFU keybag (security enhanced mechanism)"
+   default y
+   ---help---
+     Use the Backup SRAM to copy the DFU keybag. This improves security
+     over keeping plain keys in the firmware update.
+
+config LOADER_BSRAM_FLASH_KEY
+   bool "Use Backup SRAM for DFU flash over-encryption key (security enhanced mechanism)"
+   default y
+   ---help---
+     Use the Backup SRAM to copy the flash over-encryption key in DFU mode.
+     This improves security over keeping plain keys in the firmware update.
+
 
 
 config LOADER_USE_PVD
