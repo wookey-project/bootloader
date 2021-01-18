@@ -62,11 +62,13 @@
 #include "automaton.h"
 #include "soc-bkpsram.h"
 #include "soc-pwr.h"
+#include "flash_regs.h"
 
 #define COLOR_NORMAL  "\033[0m"
 #define COLOR_REVERSE "\033[7m"
 #define COLOR_REDBG   "\033[41m"
 
+#if defined(CONFIG_LOADER_BSRAM_KEYBAG_AUTH) || defined(CONFIG_LOADER_BSRAM_KEYBAG_DFU) || defined(CONFIG_LOADER_BSRAM_FLASH_KEY)
 /* Helpers to get our keybag memory addresses in flash */
 extern uint32_t *__noupgrade_auth_flash_start;
 extern uint32_t *__noupgrade_auth_flash_len;
@@ -75,6 +77,7 @@ extern uint32_t *__noupgrade_dfu_flash_len;
 /* Helper to get our overencryption key */
 extern uint32_t *__noupgrade_dfu_flash_key_iv_start;
 extern uint32_t *__noupgrade_dfu_flash_key_iv_len;
+#endif
 
 /**
  *  Ref DocID022708 Rev 4 p.141
@@ -719,12 +722,44 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
       && (ctx.next_stage != (app_entry_t)FW1_START) && (ctx.next_stage != (app_entry_t)FW2_START)){
         goto err;
     }
+
+    /* Using Backup SRAM for keybags and keybag emulation are incompatible! */
+#if defined(CONFIG_LOADER_BSRAM_KEYBAG_AUTH) || defined(CONFIG_LOADER_BSRAM_KEYBAG_DFU) || defined(CONFIG_LOADER_BSRAM_FLASH_KEY)
+#if CONFIG_LOADER_EMULATE_OTP
+#error "CONFIG_LOADER_EMULATE_OTP and CONFIG_LOADER_BSRAM_KEYBAG_AUTH/CONFIG_LOADER_BSRAM_KEYBAG_DFU/CONFIG_LOADER_BSRAM_FLASH_KEY are incompatible!!"
+#endif
+#endif
+#if defined(CONFIG_LOADER_BSRAM_KEYBAG_AUTH) || defined(CONFIG_LOADER_BSRAM_KEYBAG_DFU) || defined(CONFIG_LOADER_BSRAM_FLASH_KEY)
+    static uint32_t bsram_len_to_copy = 0;
+#endif
+
+#if CONFIG_LOADER_BSRAM_KEYBAG_AUTH
+    bsram_len_to_copy = 0;
     /* Sanity check on keybags sizes in flash (to avoid copy overflow) */
-    if(((uint32_t)&__noupgrade_auth_flash_len > (BKPSRAM_SIZE - sizeof(uint32_t))) ||
-       ((uint32_t)&__noupgrade_dfu_flash_len > (BKPSRAM_SIZE - sizeof(uint32_t)))) {
+    bsram_len_to_copy += (uint32_t)&__noupgrade_auth_flash_len;
+#endif
+#if CONFIG_LOADER_BSRAM_KEYBAG_DFU
+    bsram_len_to_copy = 0;
+    /* Sanity check on keybags sizes in flash (to avoid copy overflow) */
+    bsram_len_to_copy += (uint32_t)&__noupgrade_dfu_flash_len;
+#endif
+#if CONFIG_LOADER_BSRAM_FLASH_KEY
+    /* Sanity check on keybags sizes in flash (to avoid copy overflow) */
+    bsram_len_to_copy += (uint32_t)&__noupgrade_dfu_flash_key_iv_len;
+#endif
+
+#if defined(CONFIG_LOADER_BSRAM_KEYBAG_AUTH) || defined(CONFIG_LOADER_BSRAM_KEYBAG_DFU) || defined(CONFIG_LOADER_BSRAM_FLASH_KEY)
+    /* Sanity check on keybags and key sizes in flash (to avoid copy overflow) */
+    if((uint32_t)&__noupgrade_auth_flash_len != (uint32_t)&__noupgrade_dfu_flash_len){
+        /* Keybag slots should be the same size! */
         goto err;
     }
- 
+    if(bsram_len_to_copy > (BKPSRAM_SIZE - sizeof(uint32_t))){
+        goto err;
+    }
+#endif
+
+
     if (ctx.next_stage) {
         /* clear debug device if activated */
         debug_release();
@@ -732,44 +767,68 @@ static loader_request_t loader_exec_req_boot(loader_state_t nextstate)
 	/* Cleanup Backup SRAM before booting
 	 * This is *safe* since our ctx is in regular SRAM global variable
 	 * Note: our variables here are *static* to avoid messing with the stack ...
+         * Note2: we put random data in the Backup SRAM to avoid an attacker using known values.
 	 */
         static unsigned int i;
         static uint32_t *bkp_ptr = (uint32_t*)BKPSRAM_BASE;
+        static uint32_t random;
         for(i = (BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)); i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
-            bkp_ptr[i] = 0;
+            if(soc_get_random((uint32_t*)&random)){
+                goto err;
+            }
+            bkp_ptr[i] = random;
         }
         for(i = (BKPSRAM_EMULATE_OTP_SIZE / sizeof(uint32_t)); i < (BKPSRAM_SIZE / sizeof(uint32_t)); i++){
-            bkp_ptr[i] = 0;
+            if(soc_get_random((uint32_t*)&random)){
+                goto err;
+            }
+            bkp_ptr[i] = random;
         }
+#if defined(CONFIG_LOADER_BSRAM_KEYBAG_AUTH) || defined(CONFIG_LOADER_BSRAM_KEYBAG_DFU) || defined(CONFIG_LOADER_BSRAM_FLASH_KEY)
         /* Now copy the appropriate keybag in SRAM */
         static uint8_t *bkp_ptr_char = (uint8_t*)BKPSRAM_BASE;
-        static uint8_t *keybag_flash_start;
-        static uint32_t keybag_flash_len;
+        static uint8_t *keybag_flash_start = NULL;
+        static uint32_t keybag_flash_len = 0;
         static uint8_t *dfu_flash_key_iv_start = NULL;
-	static uint32_t dfu_flash_key_iv_len = 0; 
+	static uint32_t dfu_flash_key_iv_len = 0;
+        /* Slot size should be the same for keybags (checked before) */
+        static uint32_t keybag_slot_size = (uint32_t)&__noupgrade_dfu_flash_len;
         if (ctx.dfu_mode == sectrue){
+#if defined(CONFIG_LOADER_BSRAM_KEYBAG_DFU)
             keybag_flash_start = (uint8_t*)&__noupgrade_dfu_flash_start;
             keybag_flash_len = (uint32_t)&__noupgrade_dfu_flash_len;
+#endif
+#if defined(CONFIG_LOADER_BSRAM_FLASH_KEY)
             /* In DFU mode, we also copy our flash over-encryption key */
             dfu_flash_key_iv_start = (uint8_t*)&__noupgrade_dfu_flash_key_iv_start;
             dfu_flash_key_iv_len = (uint32_t)&__noupgrade_dfu_flash_key_iv_len;
+#endif
         }
         else if (ctx.dfu_mode == secfalse){
+#if defined(CONFIG_LOADER_BSRAM_KEYBAG_AUTH)
             keybag_flash_start = (uint8_t*)&__noupgrade_auth_flash_start;
             keybag_flash_len = (uint32_t)&__noupgrade_auth_flash_len;
+#endif
         }
         else{
             goto err;
         }
-        for(i = 0; i < keybag_flash_len; i++){
-            bkp_ptr_char[i] = keybag_flash_start[i];
-        }
-        /* Copy flash over-encryption key if necessary */
-        if(dfu_flash_key_iv_start != NULL){
-            for(i = 0; i < dfu_flash_key_iv_len; i++){
-                bkp_ptr_char[keybag_flash_len + i] = dfu_flash_key_iv_start[i];
+
+        /* Copy keybag if we can */
+        if(IS_IN_FLASH((physaddr_t)keybag_flash_start) && IS_IN_FLASH((physaddr_t)(keybag_flash_start + keybag_flash_len))){
+            for(i = 0; i < keybag_flash_len; i++){
+                bkp_ptr_char[i] = keybag_flash_start[i];
             }
         }
+        /* Copy flash over-encryption key if necessary */
+        if(IS_IN_FLASH((physaddr_t)dfu_flash_key_iv_start) && IS_IN_FLASH((physaddr_t)(dfu_flash_key_iv_start + dfu_flash_key_iv_len))){
+            if(dfu_flash_key_iv_start != NULL){
+                for(i = 0; i < dfu_flash_key_iv_len; i++){
+                    bkp_ptr_char[keybag_slot_size + i] = dfu_flash_key_iv_start[i];
+                }
+            }
+        }
+#endif
 
 #ifdef CONFIG_LOADER_USE_PVD
 	/* Clean our PVD configuration before booting the next stage
