@@ -81,6 +81,14 @@ static uint8_t rng_run(volatile uint32_t * random)
     }
     /* Read random number */
     if (read_reg_value(r_CORTEX_M_RNG_SR) & RNG_SR_DRDY_Msk) {
+        if (read_reg_value(r_CORTEX_M_RNG_SR) & RNG_SR_SECS_Msk) {
+            /* predictable seed error (see datasheet 24.4.2) */
+            return 3;
+        }
+        if (read_reg_value(r_CORTEX_M_RNG_SR) & RNG_SR_CECS_Msk) {
+            /* clock error (see datasheet 24.4.2) */
+            return 3;
+        }
         *random = read_reg_value(r_CORTEX_M_RNG_DR);
         if ((not_first_rng == 0) || (last_rng == *random)) {
             /* FIPS PUB test of current with previous random
